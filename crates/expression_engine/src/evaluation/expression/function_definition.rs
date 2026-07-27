@@ -124,7 +124,7 @@ mod tests {
                 ComputedItem::Float(v) => sum += v,
                 ComputedItem::Integer(v) => sum += *v as f64,
                 _ => {
-                    return Err(ExpressionError::new(
+                    return Err(ExpressionError::new_simple(
                         crate::ExpressionCategory::Evaluation,
                         "add expects numeric arguments".to_string(),
                     ));

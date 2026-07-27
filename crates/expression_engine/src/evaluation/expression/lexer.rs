@@ -1,12 +1,13 @@
+use crate::expression::index::Index;
 use crate::{ExpressionCategory, ExpressionError};
 
 /// A simple lexer for tokenizing expressions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum LexarToken {
     /// Represents an atomic value (e.g., a number or identifier).
-    Atom(String),
+    Atom((Index, String)),
     /// Represents an operator (e.g., `+`, `-`, `*`, `/`).
-    Operator(String),
+    Operator((Index, String)),
     /// Represents the end of the input.
     EndOfInput,
 }
@@ -22,19 +23,28 @@ pub(crate) enum LexarToken {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Lexer {
     tokens: Vec<LexarToken>,
+    source: String,
 }
 
 impl Lexer {
     pub(crate) fn new(input: &str) -> Result<Self, ExpressionError> {
-        let mut lexer = Self { tokens: Vec::new() };
+        let mut lexer = Self {
+            tokens: Vec::new(),
+            source: input.to_string(),
+        };
         lexer.tokenize(input)?;
         Ok(lexer)
     }
 
-    fn tokenize(&mut self, input: &str) -> Result<(), ExpressionError> {
-        let mut chars = input.chars().peekable();
+    /// Returns the original expression text that this lexer tokenized.
+    pub(crate) fn source(&self) -> &str {
+        &self.source
+    }
 
-        while let Some(c) = chars.next() {
+    fn tokenize(&mut self, input: &str) -> Result<(), ExpressionError> {
+        let mut chars = input.chars().enumerate().peekable();
+
+        while let Some((i, c)) = chars.next() {
             // Skip whitespace characters
             if c.is_whitespace() {
                 continue;
@@ -45,6 +55,8 @@ impl Lexer {
                 return Err(ExpressionError::new(
                     ExpressionCategory::Lexer,
                     format!("Invalid character in expression: '{}'", c),
+                    input,
+                    vec![Index::new(i, 1)]
                 ));
             }
 
@@ -53,51 +65,61 @@ impl Lexer {
                 return Err(ExpressionError::new(
                     ExpressionCategory::Lexer,
                     format!("Invalid character in expression: '{}'", c),
+                    input,
+                    vec![Index::new(i, 1)]
                 ));
             }
 
             if c == '.' {
                 let mut s = String::new();
                 s.push(c);
-                while let Some(&c) = chars.peek() {
+                let start = i;
+                while let Some(&(_, c)) = chars.peek() {
                     if c.is_numeric() || c == '.' {
-                        s.push(chars.next().expect("peeked value must be present"));
+                        s.push(chars.next().expect("peeked value must be present").1);
                     } else {
                         break;
                     }
                 }
 
                 if s == "." {
-                    self.tokens.push(LexarToken::Operator(s));
+                    self.tokens
+                        .push(LexarToken::Operator((Index::new(start, 1), s)));
                 } else {
-                    self.tokens.push(LexarToken::Atom(s));
+                    self.tokens
+                        .push(LexarToken::Atom((Index::new(start, s.len()), s)));
                 }
             } else if c.is_numeric() {
                 let mut s = String::new();
                 s.push(c);
-                while let Some(&c) = chars.peek() {
+                let start = i;
+                while let Some(&(_, c)) = chars.peek() {
                     if c.is_numeric() || c == '.' {
-                        s.push(chars.next().expect("peeked value must be present"));
+                        s.push(chars.next().expect("peeked value must be present").1);
                     } else {
                         break;
                     }
                 }
-                self.tokens.push(LexarToken::Atom(s));
+                self.tokens
+                    .push(LexarToken::Atom((Index::new(start, s.len()), s)));
             } else if c.is_alphanumeric() || c == '_' {
                 let mut s = String::new();
                 s.push(c);
-                while let Some(&c) = chars.peek() {
+                let start = i;
+                while let Some(&(_, c)) = chars.peek() {
                     if c.is_alphanumeric() || c == '_' || c == '.' {
-                        s.push(chars.next().expect("peeked value must be present"));
+                        s.push(chars.next().expect("peeked value must be present").1);
                     } else {
                         break;
                     }
                 }
-                self.tokens.push(LexarToken::Atom(s));
+                self.tokens
+                    .push(LexarToken::Atom((Index::new(start, s.len()), s)));
             } else {
                 let mut s = String::new();
                 s.push(c);
-                if let Some(&next_c) = chars.peek() {
+                let start = i;
+                if let Some(&(_, next_c)) = chars.peek() {
                     match (c, next_c) {
                         ('!', '=')
                         | ('&', '&')
@@ -105,23 +127,26 @@ impl Lexer {
                         | ('=', '=')
                         | ('>', '=')
                         | ('|', '|') => {
-                            s.push(chars.next().expect("peeked value must be present"));
+                            s.push(chars.next().expect("peeked value must be present").1);
                         }
                         _ => {}
                     }
                 }
 
-                self.tokens.push(LexarToken::Operator(s));
+                self.tokens
+                    .push(LexarToken::Operator((Index::new(start, s.len()), s)));
             }
         }
 
         for token in self.tokens.iter() {
             match token {
-                LexarToken::Atom(s) => {
+                LexarToken::Atom((index, s)) => {
                     if s.starts_with("_") {
                         return Err(ExpressionError::new(
                             ExpressionCategory::Lexer,
                             format!("Invalid string in expression: '{}'", s),
+                            input,
+                            vec![index.clone()],
                         ));
                     }
 
@@ -131,14 +156,18 @@ impl Lexer {
                         return Err(ExpressionError::new(
                             ExpressionCategory::Lexer,
                             format!("Invalid number in expression: '{}'", s),
+                            input,
+                            vec![index.clone()],
                         ));
                     }
                 }
-                LexarToken::Operator(s) => {
+                LexarToken::Operator((index, s)) => {
                     if s == "&" || s == "|" || s == "=" || s == "." {
                         return Err(ExpressionError::new(
                             ExpressionCategory::Lexer,
                             format!("Invalid operator in expression: '{}'", s),
+                            input,
+                            vec![index.clone()],
                         ));
                     }
                 }
@@ -173,15 +202,15 @@ mod tests {
         let mut lexer = Lexer::new(input).unwrap();
 
         let expected_tokens = vec![
-            LexarToken::Atom("a".to_string()),
-            LexarToken::Operator("+".to_string()),
-            LexarToken::Atom("b".to_string()),
-            LexarToken::Operator("*".to_string()),
-            LexarToken::Operator("(".to_string()),
-            LexarToken::Atom("c".to_string()),
-            LexarToken::Operator("-".to_string()),
-            LexarToken::Atom("d".to_string()),
-            LexarToken::Operator(")".to_string()),
+            LexarToken::Atom((Index::new(0, 1), "a".to_string())),
+            LexarToken::Operator((Index::new(2, 1), "+".to_string())),
+            LexarToken::Atom((Index::new(4, 1), "b".to_string())),
+            LexarToken::Operator((Index::new(6, 1), "*".to_string())),
+            LexarToken::Operator((Index::new(8, 1), "(".to_string())),
+            LexarToken::Atom((Index::new(9, 1), "c".to_string())),
+            LexarToken::Operator((Index::new(11, 1), "-".to_string())),
+            LexarToken::Atom((Index::new(13, 1), "d".to_string())),
+            LexarToken::Operator((Index::new(14, 1), ")".to_string())),
         ];
 
         for expected in expected_tokens {
@@ -199,15 +228,15 @@ mod tests {
         let mut lexer = Lexer::new(input).unwrap();
 
         let expected_tokens = vec![
-            LexarToken::Atom("a".to_string()),
-            LexarToken::Operator("+".to_string()),
-            LexarToken::Atom("b".to_string()),
-            LexarToken::Operator("*".to_string()),
-            LexarToken::Operator("(".to_string()),
-            LexarToken::Atom("c".to_string()),
-            LexarToken::Operator("-".to_string()),
-            LexarToken::Atom("d".to_string()),
-            LexarToken::Operator(")".to_string()),
+            LexarToken::Atom((Index::new(0, 1), "a".to_string())),
+            LexarToken::Operator((Index::new(1, 1), "+".to_string())),
+            LexarToken::Atom((Index::new(2, 1), "b".to_string())),
+            LexarToken::Operator((Index::new(3, 1), "*".to_string())),
+            LexarToken::Operator((Index::new(4, 1), "(".to_string())),
+            LexarToken::Atom((Index::new(5, 1), "c".to_string())),
+            LexarToken::Operator((Index::new(6, 1), "-".to_string())),
+            LexarToken::Atom((Index::new(7, 1), "d".to_string())),
+            LexarToken::Operator((Index::new(8, 1), ")".to_string())),
         ];
 
         for expected in expected_tokens {
@@ -225,15 +254,15 @@ mod tests {
         let mut lexer = Lexer::new(input).unwrap();
 
         let expected_tokens = vec![
-            LexarToken::Atom("g_test".to_string()),
-            LexarToken::Operator("+".to_string()),
-            LexarToken::Atom("p_apple".to_string()),
-            LexarToken::Operator("*".to_string()),
-            LexarToken::Operator("(".to_string()),
-            LexarToken::Atom("v_one".to_string()),
-            LexarToken::Operator("-".to_string()),
-            LexarToken::Atom("v_two".to_string()),
-            LexarToken::Operator(")".to_string()),
+            LexarToken::Atom((Index::new(0, 6), "g_test".to_string())),
+            LexarToken::Operator((Index::new(7, 1), "+".to_string())),
+            LexarToken::Atom((Index::new(9, 7), "p_apple".to_string())),
+            LexarToken::Operator((Index::new(17, 1), "*".to_string())),
+            LexarToken::Operator((Index::new(19, 1), "(".to_string())),
+            LexarToken::Atom((Index::new(20, 5), "v_one".to_string())),
+            LexarToken::Operator((Index::new(26, 1), "-".to_string())),
+            LexarToken::Atom((Index::new(28, 5), "v_two".to_string())),
+            LexarToken::Operator((Index::new(33, 1), ")".to_string())),
         ];
 
         for expected in expected_tokens {
@@ -251,25 +280,25 @@ mod tests {
         let mut lexer = Lexer::new(input).unwrap();
 
         let expected_tokens = vec![
-            LexarToken::Atom("sin".to_string()),
-            LexarToken::Operator("(".to_string()),
-            LexarToken::Atom("p_angle".to_string()),
-            LexarToken::Operator(")".to_string()),
-            LexarToken::Operator("/".to_string()),
-            LexarToken::Operator("(".to_string()),
-            LexarToken::Atom("v_table".to_string()),
-            LexarToken::Operator("[".to_string()),
-            LexarToken::Atom("1".to_string()),
-            LexarToken::Operator("]".to_string()),
-            LexarToken::Operator("[".to_string()),
-            LexarToken::Atom("1".to_string()),
-            LexarToken::Operator("]".to_string()),
-            LexarToken::Operator("^".to_string()),
-            LexarToken::Atom("2".to_string()),
-            LexarToken::Operator(")".to_string()),
-            LexarToken::Operator("+".to_string()),
-            LexarToken::Atom("43.5".to_string()),
-            LexarToken::Operator("!".to_string()),
+            LexarToken::Atom((Index::new(0, 3), "sin".to_string())),
+            LexarToken::Operator((Index::new(3, 1), "(".to_string())),
+            LexarToken::Atom((Index::new(4, 7), "p_angle".to_string())),
+            LexarToken::Operator((Index::new(11, 1), ")".to_string())),
+            LexarToken::Operator((Index::new(12, 1), "/".to_string())),
+            LexarToken::Operator((Index::new(13, 1), "(".to_string())),
+            LexarToken::Atom((Index::new(14, 7), "v_table".to_string())),
+            LexarToken::Operator((Index::new(21, 1), "[".to_string())),
+            LexarToken::Atom((Index::new(22, 1), "1".to_string())),
+            LexarToken::Operator((Index::new(23, 1), "]".to_string())),
+            LexarToken::Operator((Index::new(24, 1), "[".to_string())),
+            LexarToken::Atom((Index::new(25, 1), "1".to_string())),
+            LexarToken::Operator((Index::new(26, 1), "]".to_string())),
+            LexarToken::Operator((Index::new(27, 1), "^".to_string())),
+            LexarToken::Atom((Index::new(28, 1), "2".to_string())),
+            LexarToken::Operator((Index::new(29, 1), ")".to_string())),
+            LexarToken::Operator((Index::new(31, 1), "+".to_string())),
+            LexarToken::Atom((Index::new(33, 4), "43.5".to_string())),
+            LexarToken::Operator((Index::new(37, 1), "!".to_string())),
         ];
 
         for expected in expected_tokens {
@@ -287,21 +316,21 @@ mod tests {
         let mut lexer = Lexer::new(input).unwrap();
 
         let expected_tokens = vec![
-            LexarToken::Atom("p_value1".to_string()),
-            LexarToken::Operator(">=".to_string()),
-            LexarToken::Atom("p_value2".to_string()),
-            LexarToken::Operator("&&".to_string()),
-            LexarToken::Atom("p_value3".to_string()),
-            LexarToken::Operator("!=".to_string()),
-            LexarToken::Atom("p_value4".to_string()),
-            LexarToken::Operator("||".to_string()),
-            LexarToken::Atom("p_value1".to_string()),
-            LexarToken::Operator("<=".to_string()),
-            LexarToken::Atom("p_value2".to_string()),
-            LexarToken::Operator("||".to_string()),
-            LexarToken::Atom("p_value3".to_string()),
-            LexarToken::Operator("==".to_string()),
-            LexarToken::Atom("p_value4".to_string()),
+            LexarToken::Atom((Index::new(0, 8), "p_value1".to_string())),
+            LexarToken::Operator((Index::new(9, 2), ">=".to_string())),
+            LexarToken::Atom((Index::new(12, 8), "p_value2".to_string())),
+            LexarToken::Operator((Index::new(21, 2), "&&".to_string())),
+            LexarToken::Atom((Index::new(24, 8), "p_value3".to_string())),
+            LexarToken::Operator((Index::new(33, 2), "!=".to_string())),
+            LexarToken::Atom((Index::new(36, 8), "p_value4".to_string())),
+            LexarToken::Operator((Index::new(45, 2), "||".to_string())),
+            LexarToken::Atom((Index::new(48, 8), "p_value1".to_string())),
+            LexarToken::Operator((Index::new(57, 2), "<=".to_string())),
+            LexarToken::Atom((Index::new(60, 8), "p_value2".to_string())),
+            LexarToken::Operator((Index::new(69, 2), "||".to_string())),
+            LexarToken::Atom((Index::new(72, 8), "p_value3".to_string())),
+            LexarToken::Operator((Index::new(81, 2), "==".to_string())),
+            LexarToken::Atom((Index::new(84, 8), "p_value4".to_string())),
         ];
 
         for expected in expected_tokens {
@@ -319,21 +348,21 @@ mod tests {
         let mut lexer = Lexer::new(input).unwrap();
 
         let expected_tokens = vec![
-            LexarToken::Atom("p_map".to_string()),
-            LexarToken::Operator("[".to_string()),
-            LexarToken::Atom("key1".to_string()),
-            LexarToken::Operator("]".to_string()),
-            LexarToken::Operator("[".to_string()),
-            LexarToken::Atom("item1".to_string()),
-            LexarToken::Operator("]".to_string()),
-            LexarToken::Operator("+".to_string()),
-            LexarToken::Atom("p_map".to_string()),
-            LexarToken::Operator("[".to_string()),
-            LexarToken::Atom("key2".to_string()),
-            LexarToken::Operator("]".to_string()),
-            LexarToken::Operator("[".to_string()),
-            LexarToken::Atom("item2".to_string()),
-            LexarToken::Operator("]".to_string()),
+            LexarToken::Atom((Index::new(0, 5), "p_map".to_string())),
+            LexarToken::Operator((Index::new(5, 1), "[".to_string())),
+            LexarToken::Atom((Index::new(6, 4), "key1".to_string())),
+            LexarToken::Operator((Index::new(10, 1), "]".to_string())),
+            LexarToken::Operator((Index::new(11, 1), "[".to_string())),
+            LexarToken::Atom((Index::new(12, 5), "item1".to_string())),
+            LexarToken::Operator((Index::new(17, 1), "]".to_string())),
+            LexarToken::Operator((Index::new(19, 1), "+".to_string())),
+            LexarToken::Atom((Index::new(21, 5), "p_map".to_string())),
+            LexarToken::Operator((Index::new(26, 1), "[".to_string())),
+            LexarToken::Atom((Index::new(27, 4), "key2".to_string())),
+            LexarToken::Operator((Index::new(31, 1), "]".to_string())),
+            LexarToken::Operator((Index::new(32, 1), "[".to_string())),
+            LexarToken::Atom((Index::new(33, 5), "item2".to_string())),
+            LexarToken::Operator((Index::new(38, 1), "]".to_string())),
         ];
 
         for expected in expected_tokens {
@@ -351,24 +380,24 @@ mod tests {
         let mut lexer = Lexer::new(input).unwrap();
 
         let expected_tokens = vec![
-            LexarToken::Atom("function".to_string()),
-            LexarToken::Operator("(".to_string()),
-            LexarToken::Atom("p_map".to_string()),
-            LexarToken::Operator("[".to_string()),
-            LexarToken::Atom("key1".to_string()),
-            LexarToken::Operator("]".to_string()),
-            LexarToken::Operator("[".to_string()),
-            LexarToken::Atom("item1".to_string()),
-            LexarToken::Operator("]".to_string()),
-            LexarToken::Operator(",".to_string()),
-            LexarToken::Atom("p_map".to_string()),
-            LexarToken::Operator("[".to_string()),
-            LexarToken::Atom("key2".to_string()),
-            LexarToken::Operator("]".to_string()),
-            LexarToken::Operator("[".to_string()),
-            LexarToken::Atom("item2".to_string()),
-            LexarToken::Operator("]".to_string()),
-            LexarToken::Operator(")".to_string()),
+            LexarToken::Atom((Index::new(0, 8), "function".to_string())),
+            LexarToken::Operator((Index::new(8, 1), "(".to_string())),
+            LexarToken::Atom((Index::new(9, 5), "p_map".to_string())),
+            LexarToken::Operator((Index::new(14, 1), "[".to_string())),
+            LexarToken::Atom((Index::new(15, 4), "key1".to_string())),
+            LexarToken::Operator((Index::new(19, 1), "]".to_string())),
+            LexarToken::Operator((Index::new(20, 1), "[".to_string())),
+            LexarToken::Atom((Index::new(21, 5), "item1".to_string())),
+            LexarToken::Operator((Index::new(26, 1), "]".to_string())),
+            LexarToken::Operator((Index::new(27, 1), ",".to_string())),
+            LexarToken::Atom((Index::new(29, 5), "p_map".to_string())),
+            LexarToken::Operator((Index::new(34, 1), "[".to_string())),
+            LexarToken::Atom((Index::new(35, 4), "key2".to_string())),
+            LexarToken::Operator((Index::new(39, 1), "]".to_string())),
+            LexarToken::Operator((Index::new(40, 1), "[".to_string())),
+            LexarToken::Atom((Index::new(41, 5), "item2".to_string())),
+            LexarToken::Operator((Index::new(46, 1), "]".to_string())),
+            LexarToken::Operator((Index::new(47, 1), ")".to_string())),
         ];
 
         for expected in expected_tokens {
@@ -386,22 +415,22 @@ mod tests {
         let mut lexer = Lexer::new(input).unwrap();
 
         let expected_tokens = vec![
-            LexarToken::Atom("2.0".to_string()),
-            LexarToken::Atom("p_value1".to_string()),
-            LexarToken::Operator("+".to_string()),
-            LexarToken::Atom("5.0".to_string()),
-            LexarToken::Atom("p_value2".to_string()),
-            LexarToken::Operator("*".to_string()),
-            LexarToken::Atom("6.0".to_string()),
-            LexarToken::Operator("(".to_string()),
-            LexarToken::Atom(".87".to_string()),
-            LexarToken::Atom("p_value3".to_string()),
-            LexarToken::Operator("-".to_string()),
-            LexarToken::Atom("77".to_string()),
-            LexarToken::Atom("p_value4".to_string()),
-            LexarToken::Operator(")".to_string()),
-            LexarToken::Operator("/".to_string()),
-            LexarToken::Atom("p_value5".to_string()),
+            LexarToken::Atom((Index::new(0, 3), "2.0".to_string())),
+            LexarToken::Atom((Index::new(3, 8), "p_value1".to_string())),
+            LexarToken::Operator((Index::new(12, 1), "+".to_string())),
+            LexarToken::Atom((Index::new(14, 3), "5.0".to_string())),
+            LexarToken::Atom((Index::new(17, 8), "p_value2".to_string())),
+            LexarToken::Operator((Index::new(26, 1), "*".to_string())),
+            LexarToken::Atom((Index::new(28, 3), "6.0".to_string())),
+            LexarToken::Operator((Index::new(31, 1), "(".to_string())),
+            LexarToken::Atom((Index::new(32, 3), ".87".to_string())),
+            LexarToken::Atom((Index::new(35, 8), "p_value3".to_string())),
+            LexarToken::Operator((Index::new(44, 1), "-".to_string())),
+            LexarToken::Atom((Index::new(46, 2), "77".to_string())),
+            LexarToken::Atom((Index::new(48, 8), "p_value4".to_string())),
+            LexarToken::Operator((Index::new(56, 1), ")".to_string())),
+            LexarToken::Operator((Index::new(58, 1), "/".to_string())),
+            LexarToken::Atom((Index::new(60, 8), "p_value5".to_string())),
         ];
 
         for expected in expected_tokens {
@@ -420,15 +449,18 @@ mod tests {
 
         // Peek at the first token
         let token = lexer.peek();
-        assert_eq!(token, LexarToken::Atom("a".to_string()));
+        assert_eq!(token, LexarToken::Atom((Index::new(0, 1), "a".to_string())));
 
         // Consume the first token
         let token = lexer.next();
-        assert_eq!(token, LexarToken::Atom("a".to_string()));
+        assert_eq!(token, LexarToken::Atom((Index::new(0, 1), "a".to_string())));
 
         // Peek at the next token
         let token = lexer.peek();
-        assert_eq!(token, LexarToken::Operator("+".to_string()));
+        assert_eq!(
+            token,
+            LexarToken::Operator((Index::new(2, 1), "+".to_string()))
+        );
     }
 
     #[test]
@@ -506,5 +538,27 @@ mod tests {
                 format!("Invalid string in expression: '{}'", ch)
             );
         }
+    }
+
+    #[test]
+    fn display_renders_underline_beneath_marked_span() {
+        // A single invalid character produces a single `~` at its position.
+        let error = Lexer::new("1 + @ * 2").unwrap_err();
+        let rendered = error.to_string();
+        assert_eq!(
+            rendered,
+            "[Lexer] Invalid character in expression: '@'\n1 + @ * 2\n    ~\n"
+        );
+    }
+
+    #[test]
+    fn display_renders_underline_across_a_multi_char_span() {
+        // An invalid number spans the whole token, so the underline covers it.
+        let error = Lexer::new("1.2.3 * 2").unwrap_err();
+        let rendered = error.to_string();
+        assert_eq!(
+            rendered,
+            "[Lexer] Invalid number in expression: '1.2.3'\n1.2.3 * 2\n~~~~~\n"
+        );
     }
 }

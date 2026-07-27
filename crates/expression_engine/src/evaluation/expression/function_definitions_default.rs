@@ -4,7 +4,7 @@ use datastore::store_key;
 
 fn sin(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     if args.len() != 1 {
-        return Err(ExpressionError::new(
+        return Err(ExpressionError::new_simple(
             crate::ExpressionCategory::Evaluation,
             "sin function requires exactly 1 argument".to_string(),
         ));
@@ -14,7 +14,7 @@ fn sin(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 
     match arg {
         ComputedItem::Float(value) => Ok(ComputedItem::Float(value.sin())),
-        _ => Err(ExpressionError::new(
+        _ => Err(ExpressionError::new_simple(
             crate::ExpressionCategory::Evaluation,
             "sin function argument must be a number".to_string(),
         )),
@@ -23,7 +23,7 @@ fn sin(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 
 fn cos(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     if args.len() != 1 {
-        return Err(ExpressionError::new(
+        return Err(ExpressionError::new_simple(
             crate::ExpressionCategory::Evaluation,
             "cos function requires exactly 1 argument".to_string(),
         ));
@@ -33,7 +33,7 @@ fn cos(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 
     match arg {
         ComputedItem::Float(value) => Ok(ComputedItem::Float(value.cos())),
-        _ => Err(ExpressionError::new(
+        _ => Err(ExpressionError::new_simple(
             crate::ExpressionCategory::Evaluation,
             "cos function argument must be a number".to_string(),
         )),
@@ -42,7 +42,7 @@ fn cos(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 
 fn tan(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     if args.len() != 1 {
-        return Err(ExpressionError::new(
+        return Err(ExpressionError::new_simple(
             crate::ExpressionCategory::Evaluation,
             "tan function requires exactly 1 argument".to_string(),
         ));
@@ -52,7 +52,7 @@ fn tan(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 
     match arg {
         ComputedItem::Float(value) => Ok(ComputedItem::Float(value.tan())),
-        _ => Err(ExpressionError::new(
+        _ => Err(ExpressionError::new_simple(
             crate::ExpressionCategory::Evaluation,
             "tan function argument must be a number".to_string(),
         )),
@@ -61,7 +61,7 @@ fn tan(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 
 fn arcsin(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     if args.len() != 1 {
-        return Err(ExpressionError::new(
+        return Err(ExpressionError::new_simple(
             crate::ExpressionCategory::Evaluation,
             "arcsin function requires exactly 1 argument".to_string(),
         ));
@@ -71,7 +71,7 @@ fn arcsin(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 
     match arg {
         ComputedItem::Float(value) => Ok(ComputedItem::Float(value.asin())),
-        _ => Err(ExpressionError::new(
+        _ => Err(ExpressionError::new_simple(
             crate::ExpressionCategory::Evaluation,
             "arcsin function argument must be a number".to_string(),
         )),
@@ -80,7 +80,7 @@ fn arcsin(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 
 fn arccos(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     if args.len() != 1 {
-        return Err(ExpressionError::new(
+        return Err(ExpressionError::new_simple(
             crate::ExpressionCategory::Evaluation,
             "arccos function requires exactly 1 argument".to_string(),
         ));
@@ -90,7 +90,7 @@ fn arccos(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 
     match arg {
         ComputedItem::Float(value) => Ok(ComputedItem::Float(value.acos())),
-        _ => Err(ExpressionError::new(
+        _ => Err(ExpressionError::new_simple(
             crate::ExpressionCategory::Evaluation,
             "arccos function argument must be a number".to_string(),
         )),
@@ -99,7 +99,7 @@ fn arccos(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 
 fn arctan(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     if args.len() != 1 {
-        return Err(ExpressionError::new(
+        return Err(ExpressionError::new_simple(
             crate::ExpressionCategory::Evaluation,
             "arctan function requires exactly 1 argument".to_string(),
         ));
@@ -109,7 +109,7 @@ fn arctan(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 
     match arg {
         ComputedItem::Float(value) => Ok(ComputedItem::Float(value.atan())),
-        _ => Err(ExpressionError::new(
+        _ => Err(ExpressionError::new_simple(
             crate::ExpressionCategory::Evaluation,
             "arctan function argument must be a number".to_string(),
         )),

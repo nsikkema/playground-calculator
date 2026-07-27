@@ -37,7 +37,7 @@ impl ExpressionEngine {
     /// definition.
     pub fn register_function(&mut self, func: FunctionDefinition) -> Result<(), ExpressionError> {
         if func.name().as_str().trim().is_empty() {
-            return Err(ExpressionError::new(
+            return Err(ExpressionError::new_simple(
                 crate::ExpressionCategory::Evaluation,
                 "Function name must not be empty.".to_string(),
             ));

@@ -14,7 +14,7 @@ fn add_integers(args: &[ComputedItem]) -> Result<ComputedItem, expression_engine
         match arg {
             ComputedItem::Integer(value) => total += value,
             other => {
-                return Err(expression_engine::ExpressionError::new(
+                return Err(expression_engine::ExpressionError::new_simple(
                     expression_engine::ExpressionCategory::Evaluation,
                     format!("add() expects integer arguments, got {other:?}"),
                 ));
@@ -30,7 +30,7 @@ fn multiply_floats(
 ) -> Result<ComputedItem, expression_engine::ExpressionError> {
     match args {
         [ComputedItem::Float(a), ComputedItem::Float(b)] => Ok(ComputedItem::Float(a * b)),
-        _ => Err(expression_engine::ExpressionError::new(
+        _ => Err(expression_engine::ExpressionError::new_simple(
             expression_engine::ExpressionCategory::Evaluation,
             "multiply() expects exactly two float arguments".to_string(),
         )),
