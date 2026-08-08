@@ -10,6 +10,7 @@ publish.workspace = true
 datastore.workspace = true
 keys.workspace = true
 shareable_string.workspace = true
+units.workspace = true
 
 [lints]
 workspace = true

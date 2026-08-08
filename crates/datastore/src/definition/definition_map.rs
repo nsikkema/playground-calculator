@@ -1,6 +1,6 @@
 use crate::definition::{
     BooleanDefinition, ChoiceDefinition, FileDefinition, IntegerDefinition, NumberDefinition,
-    StringDefinition, TableDefinition,
+    NumberWithUnitsDefinition, StringDefinition, TableDefinition,
 };
 use crate::traits::TreePrint;
 use keys::store_key::StoreKey;
@@ -22,6 +22,8 @@ pub enum MapItemDefinition {
     Integer(IntegerDefinition),
     /// A number parameter.
     Number(NumberDefinition),
+    /// A number with units parameter.
+    NumberWithUnits(NumberWithUnitsDefinition),
     /// A string parameter.
     String(StringDefinition),
     /// A table parameter.
@@ -80,6 +82,7 @@ impl MapItemDefinition {
             Self::File(def) => Self::File(def.launder(store)),
             Self::Integer(def) => Self::Integer(def.launder(store)),
             Self::Number(def) => Self::Number(def.launder(store)),
+            Self::NumberWithUnits(def) => Self::NumberWithUnits(def.launder(store)),
             Self::String(def) => Self::String(def.launder(store)),
             Self::Table(def) => Self::Table(def.launder(store)),
         }
@@ -112,6 +115,9 @@ impl TreePrint for MapItemDefinition {
             MapItemDefinition::File(file) => file.tree_print(f, label, prefix, last),
             MapItemDefinition::Integer(integer) => integer.tree_print(f, label, prefix, last),
             MapItemDefinition::Number(number) => number.tree_print(f, label, prefix, last),
+            MapItemDefinition::NumberWithUnits(number_with_units) => {
+                number_with_units.tree_print(f, label, prefix, last)
+            }
             MapItemDefinition::String(string) => string.tree_print(f, label, prefix, last),
             MapItemDefinition::Table(table) => table.tree_print(f, label, prefix, last),
         }

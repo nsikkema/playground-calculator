@@ -12,6 +12,8 @@ pub mod frozen_item;
 pub mod frozen_map;
 /// Frozen number data.
 pub mod frozen_number;
+/// Frozen number with unit data.
+pub mod frozen_number_with_units;
 /// Frozen object data.
 pub mod frozen_object_global;
 /// Frozen parameter object data.
@@ -30,6 +32,7 @@ pub use frozen_integer::*;
 pub use frozen_item::*;
 pub use frozen_map::*;
 pub use frozen_number::*;
+pub use frozen_number_with_units::*;
 pub use frozen_object_global::*;
 pub use frozen_object_parameter::*;
 pub use frozen_object_variable::*;

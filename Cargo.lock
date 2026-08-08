@@ -827,6 +827,7 @@ dependencies = [
  "serde",
  "serde_json",
  "shareable_string",
+ "units",
 ]
 
 [[package]]
@@ -1196,6 +1197,7 @@ dependencies = [
  "datastore",
  "keys",
  "shareable_string",
+ "units",
 ]
 
 [[package]]

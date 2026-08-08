@@ -80,7 +80,9 @@ fn test_global_object_input_data() {
     // Basic items should keep their key and be exposed as `Basic` entries.
     match data.get("g_string_field").unwrap() {
         ObjectItemInputData::Basic(basic) => assert_eq!(basic.data().as_ref(), ""),
-        ObjectItemInputData::Table(_) => panic!("expected basic data"),
+        ObjectItemInputData::BasicWithUnits(_) | ObjectItemInputData::Table(_) => {
+            panic!("expected basic data")
+        }
     }
 
     // Table items should keep their key and be exposed as `Table` entries.
@@ -89,7 +91,9 @@ fn test_global_object_input_data() {
             assert_eq!(table.data().len(), 1);
             assert_eq!(table.data()[0][0].as_ref(), "1");
         }
-        ObjectItemInputData::Basic(_) => panic!("expected table data"),
+        ObjectItemInputData::Basic(_) | ObjectItemInputData::BasicWithUnits(_) => {
+            panic!("expected table data")
+        }
     }
 
     // Map items should be flattened into `key[entry][field]` paths.
@@ -97,11 +101,15 @@ fn test_global_object_input_data() {
         ObjectItemInputData::Basic(basic) => {
             assert_eq!(basic.data().as_ref(), "entry1-value");
         }
-        ObjectItemInputData::Table(_) => panic!("expected basic data"),
+        ObjectItemInputData::BasicWithUnits(_) | ObjectItemInputData::Table(_) => {
+            panic!("expected basic data")
+        }
     }
     match data.get("g_map_field[entry1][field2]").unwrap() {
         ObjectItemInputData::Basic(basic) => assert_eq!(basic.data().as_ref(), ""),
-        ObjectItemInputData::Table(_) => panic!("expected basic data"),
+        ObjectItemInputData::BasicWithUnits(_) | ObjectItemInputData::Table(_) => {
+            panic!("expected basic data")
+        }
     }
 
     // A map's flattened field should not remain accessible under its original path.
@@ -131,11 +139,15 @@ fn test_parameter_object_input_data() {
 
     match data.get("p_string_field").unwrap() {
         ObjectItemInputData::Basic(basic) => assert_eq!(basic.data().as_ref(), ""),
-        ObjectItemInputData::Table(_) => panic!("expected basic data"),
+        ObjectItemInputData::BasicWithUnits(_) | ObjectItemInputData::Table(_) => {
+            panic!("expected table data")
+        }
     }
     match data.get("p_table_field").unwrap() {
         ObjectItemInputData::Table(table) => assert_eq!(table.data().len(), 1),
-        ObjectItemInputData::Basic(_) => panic!("expected table data"),
+        ObjectItemInputData::Basic(_) | ObjectItemInputData::BasicWithUnits(_) => {
+            panic!("expected table data")
+        }
     }
     assert!(data.get("p_map_field[entry1][field1]").is_some());
 }
@@ -155,11 +167,15 @@ fn test_variable_object_input_data() {
 
     match data.get("v_string_field").unwrap() {
         ObjectItemInputData::Basic(basic) => assert_eq!(basic.data().as_ref(), ""),
-        ObjectItemInputData::Table(_) => panic!("expected basic data"),
+        ObjectItemInputData::BasicWithUnits(_) | ObjectItemInputData::Table(_) => {
+            panic!("expected basic data")
+        }
     }
     match data.get("v_table_field").unwrap() {
         ObjectItemInputData::Table(table) => assert_eq!(table.data().len(), 1),
-        ObjectItemInputData::Basic(_) => panic!("expected table data"),
+        ObjectItemInputData::Basic(_) | ObjectItemInputData::BasicWithUnits(_) => {
+            panic!("expected table data")
+        }
     }
     assert!(data.get("v_map_field[entry1][field1]").is_some());
 }

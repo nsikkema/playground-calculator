@@ -13,7 +13,9 @@ fn basic_data_for(item: ItemFrozen) -> BasicInputData {
 
     match input.data().get("g_field").unwrap() {
         ObjectItemInputData::Basic(basic) => basic.clone(),
-        ObjectItemInputData::Table(_) => panic!("expected basic data"),
+        ObjectItemInputData::BasicWithUnits(_) | ObjectItemInputData::Table(_) => {
+            panic!("expected basic data")
+        }
     }
 }
 

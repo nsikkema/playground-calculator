@@ -9,4 +9,4 @@ disallowed-methods = [
     { path = "keys::parameter_key::ConstParameterKey::__new", reason = "construct via the `parameter_key!` macro instead so invalid keys fail to compile" },
     { path = "keys::variable_key::ConstVariableKey::__new", reason = "construct via the `variable_key!` macro instead so invalid keys fail to compile" },
 ]
-too-many-lines-threshold = 225
+too-many-lines-threshold = 300

@@ -14,6 +14,8 @@ pub mod editable_item;
 pub mod editable_map;
 /// Editable number data.
 pub mod editable_number;
+/// Editable number with unit data.
+pub mod editable_number_with_units;
 /// Editable object data.
 pub mod editable_object_global;
 /// Editable parameter object data.
@@ -33,6 +35,7 @@ pub use editable_integer::*;
 pub use editable_item::*;
 pub use editable_map::*;
 pub use editable_number::*;
+pub use editable_number_with_units::*;
 pub use editable_object_global::*;
 pub use editable_object_parameter::*;
 pub use editable_object_variable::*;

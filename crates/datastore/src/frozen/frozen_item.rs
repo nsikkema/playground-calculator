@@ -1,7 +1,7 @@
 use crate::definition::ItemDefinitionType;
 use crate::frozen::{
-    BooleanFrozen, ChoiceFrozen, FileFrozen, IntegerFrozen, MapFrozen, NumberFrozen, StringFrozen,
-    TableFrozen,
+    BooleanFrozen, ChoiceFrozen, FileFrozen, IntegerFrozen, MapFrozen, NumberFrozen,
+    NumberWithUnitsFrozen, StringFrozen, TableFrozen,
 };
 use crate::traits::TreePrint;
 use serde::{Deserialize, Serialize};
@@ -21,6 +21,8 @@ pub enum ItemFrozen {
     Map(MapFrozen),
     /// A number parameter.
     Number(NumberFrozen),
+    /// A number parameter with units.
+    NumberWithUnits(NumberWithUnitsFrozen),
     /// A string parameter.
     String(StringFrozen),
     /// A table parameter.
@@ -38,7 +40,10 @@ impl ItemFrozen {
             ItemFrozen::Integer(i) => ItemDefinitionType::Integer(i.definition().clone()),
             ItemFrozen::Map(m) => ItemDefinitionType::Map(m.definition().clone()),
             ItemFrozen::Number(n) => ItemDefinitionType::Number(n.definition().clone()),
-            ItemFrozen::String(b) => ItemDefinitionType::String(b.definition().clone()),
+            ItemFrozen::NumberWithUnits(nwu) => {
+                ItemDefinitionType::NumberWithUnits(nwu.definition().clone())
+            }
+            ItemFrozen::String(s) => ItemDefinitionType::String(s.definition().clone()),
             ItemFrozen::Table(t) => ItemDefinitionType::Table(t.definition().clone()),
         }
     }
@@ -53,6 +58,7 @@ impl ItemFrozen {
             Self::Integer(i) => i.hash(),
             Self::Map(m) => m.hash(),
             Self::Number(n) => n.hash(),
+            Self::NumberWithUnits(nwu) => nwu.hash(),
             Self::String(s) => s.hash(),
             Self::Table(t) => t.hash(),
         }
@@ -128,6 +134,9 @@ impl TreePrint for ItemFrozen {
             Self::Integer(integer) => integer.tree_print(f, label, prefix, last),
             Self::Map(map) => map.tree_print(f, label, prefix, last),
             Self::Number(number) => number.tree_print(f, label, prefix, last),
+            Self::NumberWithUnits(number_with_units) => {
+                number_with_units.tree_print(f, label, prefix, last)
+            }
             Self::String(basic) => basic.tree_print(f, label, prefix, last),
             Self::Table(table) => table.tree_print(f, label, prefix, last),
         }

@@ -25,7 +25,7 @@
 use core::fmt;
 use datastore::definition::{
     BooleanDefinition, ChoiceDefinition, FileDefinition, IntegerDefinition, NumberDefinition,
-    StringDefinition,
+    NumberWithUnitsDefinition, StringDefinition,
 };
 use shareable_string::{ShareableString, SharedStringStore};
 
@@ -57,6 +57,8 @@ pub enum BasicDefinition {
     Integer(IntegerDefinition),
     /// Holds numeric value.
     Number(NumberDefinition),
+    /// Holds a numeric value with associated units.
+    NumberWithUnits(NumberWithUnitsDefinition),
     /// Holds a string value.
     String(StringDefinition),
 }
@@ -71,6 +73,9 @@ impl BasicDefinition {
             BasicDefinition::File(file) => BasicDefinition::File(file.launder(store)),
             BasicDefinition::Integer(integer) => BasicDefinition::Integer(integer.launder(store)),
             BasicDefinition::Number(number) => BasicDefinition::Number(number.launder(store)),
+            BasicDefinition::NumberWithUnits(number) => {
+                BasicDefinition::NumberWithUnits(number.launder(store))
+            }
             BasicDefinition::String(string) => BasicDefinition::String(string.launder(store)),
         }
     }

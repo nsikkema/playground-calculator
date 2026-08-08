@@ -1,10 +1,11 @@
-use crate::BasicDefinition::{Boolean, Choice, File, Integer, Number, String};
+use crate::BasicDefinition::{Boolean, Choice, File, Integer, Number, NumberWithUnits, String};
 use crate::evaluation::expression::ast::span::{Span, SpanSet};
 use crate::evaluation::expression::ast::translator::{
     Expression, Literal, Operators, expression_span,
 };
 use crate::evaluation::expression::function_definition::{ArgumentCount, FunctionDefinitions};
 use crate::expression::ast::ast_helper::string_to_expression;
+use crate::input_data::input_basic_with_units::BasicInputWithUnitsData;
 use crate::{
     BasicInputData, ComputedItem, ComputedTable, ExpressionCategory, ExpressionError,
     ObjectItemInputData, TableInputData,
@@ -12,6 +13,7 @@ use crate::{
 use datastore::definition::{IntegerConstraintEnum, NumberConstraintEnum};
 use shareable_string::ShareableString;
 use std::collections::BTreeMap;
+use units::{UnitId, conversion::convert};
 
 /// Looks up `variable_name` in `computed_data`, returning its value or an evaluation error.
 fn lookup_variable(
@@ -967,6 +969,80 @@ fn evaluate_basic_expression(
                 )),
             }
         }
+        NumberWithUnits(number_definition) => {
+            // Validate that the computed value is a number (integer or float)
+            match &computed {
+                ComputedItem::Float(value) => {
+                    let constraint = number_definition.constraint();
+                    match constraint {
+                        NumberConstraintEnum::Min { min, inclusive } => {
+                            if (*value) < min || (!inclusive && (*value) <= min) {
+                                return Err(ExpressionError::new_complex(
+                                    ExpressionCategory::Evaluation,
+                                    format!(
+                                        "Value {value} is less than the minimum allowed value of {min}."
+                                    ),
+                                    source.clone(),
+                                    SpanSet::from_span(span),
+                                ));
+                            }
+                            Ok(computed)
+                        }
+                        NumberConstraintEnum::Max { max, inclusive } => {
+                            if (*value) > max || (!inclusive && (*value) >= max) {
+                                return Err(ExpressionError::new_complex(
+                                    ExpressionCategory::Evaluation,
+                                    format!(
+                                        "Value {value} is greater than the maximum allowed value of {max}."
+                                    ),
+                                    source.clone(),
+                                    SpanSet::from_span(span),
+                                ));
+                            }
+                            Ok(computed)
+                        }
+                        NumberConstraintEnum::Range {
+                            min,
+                            max,
+                            min_inclusive,
+                            max_inclusive,
+                        } => {
+                            if (*value) < min || (!min_inclusive && (*value) <= min) {
+                                return Err(ExpressionError::new_complex(
+                                    ExpressionCategory::Evaluation,
+                                    format!(
+                                        "Value {value} is less than the minimum allowed value of {min}."
+                                    ),
+                                    source.clone(),
+                                    SpanSet::from_span(span),
+                                ));
+                            }
+                            if (*value) > max || (!max_inclusive && (*value) >= max) {
+                                return Err(ExpressionError::new_complex(
+                                    ExpressionCategory::Evaluation,
+                                    format!(
+                                        "Value {value} is greater than the maximum allowed value of {max}."
+                                    ),
+                                    source.clone(),
+                                    SpanSet::from_span(span),
+                                ));
+                            }
+
+                            Ok(computed)
+                        }
+                        NumberConstraintEnum::None => Ok(computed),
+                    }
+                }
+                _ => Err(ExpressionError::new_complex(
+                    ExpressionCategory::Evaluation,
+                    format!(
+                        "Expected a numeric value for number definition, but got {computed:?}."
+                    ),
+                    source.clone(),
+                    SpanSet::from_span(span),
+                )),
+            }
+        }
         String(_string_definition) => {
             // Validate that the computed value is a string
             if let ComputedItem::String(_) = &computed {
@@ -985,6 +1061,57 @@ fn evaluate_basic_expression(
             }
         }
     }
+}
+
+/// Evaluates a number expression and converts float results to the definition's preferred units.
+fn evaluate_number_with_units_expression(
+    computed_data: &BTreeMap<ShareableString, ComputedItem>,
+    functions: &FunctionDefinitions,
+    basic: &BasicInputWithUnitsData,
+) -> Result<ComputedItem, ExpressionError> {
+    let source = basic.data();
+    let expression = string_to_expression(source)?;
+    let span = expression_span(&expression);
+    let computed = evaluate_expression(computed_data, functions, source, expression)?;
+
+    let NumberWithUnits(number_definition) = basic.definition() else {
+        return Err(ExpressionError::new_complex(
+            ExpressionCategory::Evaluation,
+            "Expected a number-with-units definition.".to_string(),
+            source.clone(),
+            SpanSet::from_span(span),
+        ));
+    };
+
+    let ComputedItem::Float(value) = computed else {
+        return Err(ExpressionError::new_complex(
+            ExpressionCategory::Evaluation,
+            format!("Expected a numeric value for number definition, but got {computed:?}."),
+            source.clone(),
+            SpanSet::from_span(span),
+        ));
+    };
+
+    let input_unit = UnitId::from_unit_id_str(basic.units().as_str()).ok_or_else(|| {
+        ExpressionError::new_complex(
+            ExpressionCategory::Evaluation,
+            format!("Unknown unit '{}'.", basic.units()),
+            source.clone(),
+            SpanSet::from_span(span),
+        )
+    })?;
+
+    let value =
+        convert(value, input_unit, number_definition.preferred_units()).map_err(|error| {
+            ExpressionError::new_complex(
+                ExpressionCategory::Evaluation,
+                error,
+                source.clone(),
+                SpanSet::from_span(span),
+            )
+        })?;
+
+    Ok(ComputedItem::Float(value))
 }
 
 /// Evaluates all cells in a [`TableInputData`] and returns the resulting rows of `f64` values.
@@ -1184,6 +1311,20 @@ pub(crate) fn evaluator(
                     }
                 }
             }
+            ObjectItemInputData::BasicWithUnits(basic_with_units_data) => {
+                match evaluate_number_with_units_expression(
+                    computed_data,
+                    functions,
+                    basic_with_units_data,
+                ) {
+                    Ok(computed_item) => {
+                        result.insert(key.clone(), computed_item);
+                    }
+                    Err(e) => {
+                        errors.push(e);
+                    }
+                }
+            }
             ObjectItemInputData::Table(table_data) => {
                 // For table data, we need to evaluate the expression for each row.
                 let keys = table_data
@@ -1219,6 +1360,22 @@ mod tests {
         let definition = Number(NumberDefinition::new("Test Number"));
         let data = ShareableString::from(value.to_string());
         ObjectItemInputData::Basic(BasicInputData::new(definition, data))
+    }
+
+    fn create_number_with_units_input_data(
+        value: &str,
+        units: &str,
+        preferred_units: UnitId,
+    ) -> ObjectItemInputData {
+        let definition = NumberWithUnits(NumberWithUnitsDefinition::new(
+            "Test Number With Units",
+            preferred_units,
+        ));
+        ObjectItemInputData::BasicWithUnits(BasicInputWithUnitsData::new(
+            definition,
+            value.into(),
+            units.into(),
+        ))
     }
 
     fn check_number_float(computed_item: &ComputedItem, expected_value: f64) {
@@ -1384,6 +1541,25 @@ mod tests {
         assert!(errors.is_empty());
 
         check_number_float(&result["x"], 42.0);
+    }
+
+    #[test]
+    fn number_with_units_converts_float_to_preferred_units() {
+        let input_data = BTreeMap::from([(
+            "distance".into(),
+            create_number_with_units_input_data("1.0", "u_length_meter", UnitId::Length_Foot),
+        )]);
+
+        let (result, errors) =
+            evaluator(&BTreeMap::new(), &FunctionDefinitions::new(), &input_data);
+
+        assert!(errors.is_empty());
+        match result.get("distance") {
+            Some(ComputedItem::Float(value)) => {
+                assert!((*value - 3.280_839_895_013_123).abs() < f64::EPSILON);
+            }
+            other => panic!("expected converted float, got {other:?}"),
+        }
     }
 
     #[test]

@@ -13,6 +13,7 @@ serde.workspace = true
 shareable_string.workspace = true
 errors.workspace = true
 keys.workspace = true
+units.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

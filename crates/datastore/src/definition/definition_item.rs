@@ -1,6 +1,6 @@
 use crate::definition::{
     BooleanDefinition, ChoiceDefinition, IntegerDefinition, MapDefinition, NumberDefinition,
-    StringDefinition, TableDefinition,
+    NumberWithUnitsDefinition, StringDefinition, TableDefinition,
 };
 use crate::prelude::FileDefinition;
 use crate::traits::TreePrint;
@@ -22,6 +22,8 @@ pub enum ItemDefinitionType {
     Map(MapDefinition),
     /// A number item.
     Number(NumberDefinition),
+    /// A number item with units.
+    NumberWithUnits(NumberWithUnitsDefinition),
     /// A string item.
     String(StringDefinition),
     /// A table item.
@@ -70,6 +72,12 @@ impl From<NumberDefinition> for ItemDefinitionType {
     }
 }
 
+impl From<NumberWithUnitsDefinition> for ItemDefinitionType {
+    fn from(definition: NumberWithUnitsDefinition) -> Self {
+        ItemDefinitionType::NumberWithUnits(definition)
+    }
+}
+
 impl From<TableDefinition> for ItemDefinitionType {
     fn from(definition: TableDefinition) -> Self {
         ItemDefinitionType::Table(definition)
@@ -87,6 +95,7 @@ impl ItemDefinitionType {
             Self::Integer(def) => Self::Integer(def.launder(store)),
             Self::Map(def) => Self::Map(def.launder(store)),
             Self::Number(def) => Self::Number(def.launder(store)),
+            Self::NumberWithUnits(def) => Self::NumberWithUnits(def.launder(store)),
             Self::String(def) => Self::String(def.launder(store)),
             Self::Table(def) => Self::Table(def.launder(store)),
         }
@@ -120,6 +129,9 @@ impl TreePrint for ItemDefinitionType {
             Self::Integer(integer) => integer.tree_print(f, label, prefix, last),
             Self::Map(map) => map.tree_print(f, label, prefix, last),
             Self::Number(number) => number.tree_print(f, label, prefix, last),
+            Self::NumberWithUnits(number_with_units) => {
+                number_with_units.tree_print(f, label, prefix, last)
+            }
             Self::String(basic) => basic.tree_print(f, label, prefix, last),
             Self::Table(table) => table.tree_print(f, label, prefix, last),
         }

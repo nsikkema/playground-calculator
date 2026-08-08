@@ -1,7 +1,8 @@
 use crate::definition::{MapDefinition, MapItemDefinition};
 use crate::editable::{MapEditable, MapEntryEditable, MapItemEditable};
 use crate::frozen::{
-    BooleanFrozen, ChoiceFrozen, FileFrozen, IntegerFrozen, NumberFrozen, StringFrozen, TableFrozen,
+    BooleanFrozen, ChoiceFrozen, FileFrozen, IntegerFrozen, NumberFrozen, NumberWithUnitsFrozen,
+    StringFrozen, TableFrozen,
 };
 use crate::traits::TreePrint;
 use errors::StoreError;
@@ -23,6 +24,8 @@ pub enum MapItemFrozen {
     Integer(IntegerFrozen),
     /// A number value.
     Number(NumberFrozen),
+    /// A number value with associated units.
+    NumberWithUnits(NumberWithUnitsFrozen),
     /// A string value.
     String(StringFrozen),
     /// A table value.
@@ -61,6 +64,9 @@ impl MapItemFrozen {
                 MapItemDefinition::Integer(integer.definition().clone())
             }
             MapItemFrozen::Number(number) => MapItemDefinition::Number(number.definition().clone()),
+            MapItemFrozen::NumberWithUnits(number_with_units) => {
+                MapItemDefinition::NumberWithUnits(number_with_units.definition().clone())
+            }
             MapItemFrozen::String(basic) => MapItemDefinition::String(basic.definition().clone()),
             MapItemFrozen::Table(table) => MapItemDefinition::Table(table.definition().clone()),
         }
@@ -75,6 +81,7 @@ impl MapItemFrozen {
             MapItemFrozen::File(file) => file.hash(),
             MapItemFrozen::Integer(integer) => integer.hash(),
             MapItemFrozen::Number(number) => number.hash(),
+            MapItemFrozen::NumberWithUnits(number_with_units) => number_with_units.hash(),
             MapItemFrozen::String(basic) => basic.hash(),
             MapItemFrozen::Table(table) => table.hash(),
         }
@@ -97,6 +104,9 @@ impl MapItemFrozen {
             MapItemEditable::Number(number) => {
                 MapItemFrozen::Number(NumberFrozen::new_from_editable(number))
             }
+            MapItemEditable::NumberWithUnits(number_with_units) => MapItemFrozen::NumberWithUnits(
+                NumberWithUnitsFrozen::new_from_editable(number_with_units),
+            ),
             MapItemEditable::String(basic) => {
                 MapItemFrozen::String(StringFrozen::new_from_editable(basic))
             }
@@ -139,6 +149,9 @@ impl TreePrint for MapItemFrozen {
             MapItemFrozen::File(file) => file.tree_print(f, label, prefix, last),
             MapItemFrozen::Integer(integer) => integer.tree_print(f, label, prefix, last),
             MapItemFrozen::Number(number) => number.tree_print(f, label, prefix, last),
+            MapItemFrozen::NumberWithUnits(number_with_units) => {
+                number_with_units.tree_print(f, label, prefix, last)
+            }
             MapItemFrozen::String(basic) => basic.tree_print(f, label, prefix, last),
             MapItemFrozen::Table(table) => table.tree_print(f, label, prefix, last),
         }
@@ -189,6 +202,14 @@ impl MapEntryFrozen {
                     items.insert(
                         key.clone(),
                         MapItemFrozen::Number(NumberFrozen::new(number_definition.clone())),
+                    );
+                }
+                MapItemDefinition::NumberWithUnits(number_with_units_definition) => {
+                    items.insert(
+                        key.clone(),
+                        MapItemFrozen::NumberWithUnits(NumberWithUnitsFrozen::new(
+                            number_with_units_definition.clone(),
+                        )),
                     );
                 }
                 MapItemDefinition::String(basic_definition) => {

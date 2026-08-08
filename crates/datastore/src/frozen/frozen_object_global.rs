@@ -56,6 +56,14 @@ impl GlobalObjectFrozen {
                         ItemFrozen::Number(crate::frozen::NumberFrozen::new(number_def.clone())),
                     );
                 }
+                ItemDefinitionType::NumberWithUnits(number_with_units_def) => {
+                    items.insert(
+                        key,
+                        ItemFrozen::NumberWithUnits(crate::frozen::NumberWithUnitsFrozen::new(
+                            number_with_units_def.clone(),
+                        )),
+                    );
+                }
                 ItemDefinitionType::String(basic_def) => {
                     items.insert(
                         key,

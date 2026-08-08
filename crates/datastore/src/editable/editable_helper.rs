@@ -41,6 +41,9 @@ pub fn editable_set_value<
         ItemEditable::Number(number) => {
             number.set(value);
         }
+        ItemEditable::NumberWithUnits(number_with_units) => {
+            number_with_units.set(value);
+        }
         ItemEditable::String(string) => {
             string.set(value);
         }
@@ -81,6 +84,9 @@ pub fn editable_set_map_value<S1: Into<ShareableString>, S2: Into<ShareableStrin
         }
         MapItemEditable::Number(number) => {
             number.set(value);
+        }
+        MapItemEditable::NumberWithUnits(number_with_units) => {
+            number_with_units.set(value);
         }
         MapItemEditable::String(string) => {
             string.set(value);

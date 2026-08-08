@@ -1,4 +1,5 @@
 use crate::BasicDefinition;
+use crate::input_basic_with_units::BasicInputWithUnitsData;
 use crate::input_data::input_basic::BasicInputData;
 use crate::input_data::input_table::TableInputData;
 use datastore::frozen::{
@@ -13,6 +14,8 @@ use std::collections::BTreeMap;
 pub enum ObjectItemInputData {
     /// Basic input data item.
     Basic(BasicInputData),
+    /// Basic input data item with units.
+    BasicWithUnits(BasicInputWithUnitsData),
     /// Table input data item.
     Table(TableInputData),
 }
@@ -41,6 +44,13 @@ fn map_item_to_input_data(map_item: &MapItemFrozen) -> ObjectItemInputData {
             BasicDefinition::Number(number.definition().clone()),
             number.value(),
         )),
+        MapItemFrozen::NumberWithUnits(number_with_units) => {
+            ObjectItemInputData::BasicWithUnits(BasicInputWithUnitsData::new(
+                BasicDefinition::NumberWithUnits(number_with_units.definition().clone()),
+                number_with_units.value(),
+                number_with_units.units(),
+            ))
+        }
         MapItemFrozen::String(string) => ObjectItemInputData::Basic(BasicInputData::new(
             BasicDefinition::String(string.definition().clone()),
             string.value(),
@@ -117,6 +127,16 @@ fn item_to_input_data(
                 ObjectItemInputData::Basic(BasicInputData::new(
                     BasicDefinition::Number(number.definition().clone()),
                     number.value(),
+                )),
+            );
+        }
+        ItemFrozen::NumberWithUnits(number_with_units) => {
+            map.insert(
+                key,
+                ObjectItemInputData::BasicWithUnits(BasicInputWithUnitsData::new(
+                    BasicDefinition::NumberWithUnits(number_with_units.definition().clone()),
+                    number_with_units.value(),
+                    number_with_units.units(),
                 )),
             );
         }

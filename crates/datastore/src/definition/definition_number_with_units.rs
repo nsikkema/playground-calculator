@@ -2,61 +2,71 @@ use crate::definition::{NumberConstraint, NumberConstraintEnum};
 use crate::traits::TreePrint;
 use serde::{Deserialize, Serialize};
 use shareable_string::{ShareableString, SharedStringStore};
+use units::UnitId;
 
-/// Definition for a number-based parameter.
+/// Definition for a number-based parameter with units.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct NumberDefinition {
+pub struct NumberWithUnitsDefinition {
     /// Human-readable description of this number parameter.
     description: ShareableString,
     /// Optional constraint (min, max, range, or none) applied to the value.
     constraint: NumberConstraint,
+    /// Units associated with this number parameter.
+    preferred_units: UnitId,
     /// Default value for this number parameter.
     default_value: ShareableString,
 }
 
-impl NumberDefinition {
-    /// Creates a new number-based `NumberDefinition`.
-    pub fn new<S1: Into<ShareableString>>(description: S1) -> Self {
+impl NumberWithUnitsDefinition {
+    /// Creates a new number-based `NumberWithUnitsDefinition`.
+    pub fn new<S1: Into<ShareableString>>(description: S1, preferred_units: UnitId) -> Self {
         Self {
             description: description.into(),
             constraint: NumberConstraint::none(),
+            preferred_units,
             default_value: ShareableString::default(),
         }
     }
 
-    /// Creates a new number-based `NumberDefinition` with a default value.
+    /// Creates a new number-based `NumberWithUnitsDefinition` with a default value.
     pub fn new_with_default<S1: Into<ShareableString>, S2: Into<ShareableString>>(
         description: S1,
         default_value: S2,
+        preferred_units: UnitId,
     ) -> Self {
         Self {
             description: description.into(),
             constraint: NumberConstraint::none(),
+            preferred_units,
             default_value: default_value.into(),
         }
     }
 
-    /// Creates a new number-based `NumberDefinition`.
+    /// Creates a new number-based `NumberWithUnitsDefinition` with a constraint.
     pub fn new_with_constraint<S: Into<ShareableString>>(
         description: S,
         constraint: NumberConstraint,
+        preferred_units: UnitId,
     ) -> Self {
         Self {
             description: description.into(),
             constraint,
+            preferred_units,
             default_value: ShareableString::default(),
         }
     }
 
-    /// Creates a new number-based `NumberDefinition` with a default value.
+    /// Creates a new number-based `NumberWithUnitsDefinition` with a default value.
     pub fn new_with_constraint_and_default<S1: Into<ShareableString>, S2: Into<ShareableString>>(
         description: S1,
         constraint: NumberConstraint,
         default_value: S2,
+        preferred_units: UnitId,
     ) -> Self {
         Self {
             description: description.into(),
             constraint,
+            preferred_units,
             default_value: default_value.into(),
         }
     }
@@ -73,13 +83,14 @@ impl NumberDefinition {
         &self.constraint.constraint_enum
     }
 
-    /// Returns a new `NumberDefinition` with strings laundered through the provided store.
+    /// Returns a new `NumberWithUnitsDefinition` with strings laundered through the provided store.
     #[must_use]
     pub fn launder(&self, store: &SharedStringStore) -> Self {
         Self {
             description: store.launder(&self.description),
             constraint: self.constraint.clone(),
             default_value: store.launder(&self.default_value),
+            preferred_units: self.preferred_units,
         }
     }
 
@@ -106,16 +117,50 @@ impl NumberDefinition {
     pub const fn default_value_ref(&self) -> &ShareableString {
         &self.default_value
     }
+
+    /// Returns the preferred units of the parameter.
+    #[must_use]
+    pub const fn preferred_units(&self) -> UnitId {
+        self.preferred_units
+    }
+
+    /// Returns a reference to the preferred units.
+    #[must_use]
+    pub const fn preferred_units_ref(&self) -> &UnitId {
+        &self.preferred_units
+    }
+
+    /// Returns the keys of the units in the preferred units' family.
+    #[must_use]
+    pub fn unit_keys(&self) -> Vec<ShareableString> {
+        self.preferred_units
+            .family_id()
+            .unit_ids()
+            .iter()
+            .map(|id| id.string_id().into())
+            .collect()
+    }
+
+    /// Returns the descriptions of the units in the preferred units' family.
+    #[must_use]
+    pub fn unit_descriptions(&self) -> Vec<ShareableString> {
+        self.preferred_units
+            .family_id()
+            .unit_ids()
+            .iter()
+            .map(|id| id.description().into())
+            .collect()
+    }
 }
 
-impl PartialEq<&NumberDefinition> for NumberDefinition {
-    fn eq(&self, other: &&NumberDefinition) -> bool {
+impl PartialEq<&NumberWithUnitsDefinition> for NumberWithUnitsDefinition {
+    fn eq(&self, other: &&NumberWithUnitsDefinition) -> bool {
         self == *other
     }
 }
 
-impl PartialEq<NumberDefinition> for &NumberDefinition {
-    fn eq(&self, other: &NumberDefinition) -> bool {
+impl PartialEq<NumberWithUnitsDefinition> for &NumberWithUnitsDefinition {
+    fn eq(&self, other: &NumberWithUnitsDefinition) -> bool {
         *self == other
     }
 }
@@ -135,7 +180,7 @@ fn format_number_value(value: f64) -> String {
     formatted
 }
 
-impl TreePrint for NumberDefinition {
+impl TreePrint for NumberWithUnitsDefinition {
     fn tree_print(
         &self,
         f: &mut std::fmt::Formatter<'_>,
@@ -187,11 +232,12 @@ impl TreePrint for NumberDefinition {
 
         writeln!(
             f,
-            "{}{}{} ({}) Number - default: \"{}\"{}",
+            "{}{}{} ({}) Number - unit: {} - default: \"{}\"{}",
             prefix,
             Self::branch_char(last),
             label,
             self.description,
+            self.preferred_units.description(),
             self.default_value,
             constraint_str
         )

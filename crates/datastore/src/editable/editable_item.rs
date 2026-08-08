@@ -1,7 +1,7 @@
 use crate::definition::ItemDefinitionType;
 use crate::editable::{
     BooleanEditable, ChoiceEditable, FileEditable, IntegerEditable, MapEditable, NumberEditable,
-    StringEditable, TableEditable,
+    NumberWithUnitsEditable, StringEditable, TableEditable,
 };
 use crate::frozen::ItemFrozen;
 use crate::traits::TreePrint;
@@ -22,6 +22,8 @@ pub enum ItemEditable {
     Map(MapEditable),
     /// A number parameter.
     Number(NumberEditable),
+    /// A number parameter with units.
+    NumberWithUnits(NumberWithUnitsEditable),
     /// A string parameter.
     String(StringEditable),
     /// A table parameter.
@@ -39,6 +41,9 @@ impl ItemEditable {
             ItemFrozen::Integer(integer) => ItemEditable::Integer(IntegerEditable::new(integer)),
             ItemFrozen::Map(map) => ItemEditable::Map(MapEditable::new(map)),
             ItemFrozen::Number(number) => ItemEditable::Number(NumberEditable::new(number)),
+            ItemFrozen::NumberWithUnits(number_with_units) => {
+                ItemEditable::NumberWithUnits(NumberWithUnitsEditable::new(number_with_units))
+            }
             ItemFrozen::String(string) => ItemEditable::String(StringEditable::new(string)),
             ItemFrozen::Table(table) => ItemEditable::Table(TableEditable::new(table)),
         }
@@ -54,6 +59,9 @@ impl ItemEditable {
             ItemEditable::Integer(integer) => ItemFrozen::Integer(integer.freeze()),
             ItemEditable::Map(map) => ItemFrozen::Map(map.freeze()),
             ItemEditable::Number(number) => ItemFrozen::Number(number.freeze()),
+            ItemEditable::NumberWithUnits(number_with_units) => {
+                ItemFrozen::NumberWithUnits(number_with_units.freeze())
+            }
             ItemEditable::String(string) => ItemFrozen::String(string.freeze()),
             ItemEditable::Table(table) => ItemFrozen::Table(table.freeze()),
         }
@@ -69,6 +77,9 @@ impl ItemEditable {
             ItemEditable::Integer(i) => ItemDefinitionType::Integer(i.definition().clone()),
             ItemEditable::Map(m) => ItemDefinitionType::Map(m.definition().clone()),
             ItemEditable::Number(n) => ItemDefinitionType::Number(n.definition().clone()),
+            ItemEditable::NumberWithUnits(nwu) => {
+                ItemDefinitionType::NumberWithUnits(nwu.definition().clone())
+            }
             ItemEditable::String(b) => ItemDefinitionType::String(b.definition().clone()),
             ItemEditable::Table(t) => ItemDefinitionType::Table(t.definition().clone()),
         }
@@ -234,6 +245,9 @@ impl TreePrint for ItemEditable {
             Self::Integer(integer) => integer.tree_print(f, label, prefix, last),
             Self::Map(map) => map.tree_print(f, label, prefix, last),
             Self::Number(number) => number.tree_print(f, label, prefix, last),
+            Self::NumberWithUnits(number_with_units) => {
+                number_with_units.tree_print(f, label, prefix, last)
+            }
             Self::String(string) => string.tree_print(f, label, prefix, last),
             Self::Table(table) => table.tree_print(f, label, prefix, last),
         }

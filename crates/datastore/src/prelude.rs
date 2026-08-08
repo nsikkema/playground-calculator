@@ -24,9 +24,9 @@ pub use crate::definition::{
     BooleanDefinition, ChoiceDefinition, ChoiceItemDefinition, FileDefinition,
     GlobalObjectDefinition, GlobalObjectDefinitionBuilder, IntegerConstraint,
     IntegerConstraintEnum, IntegerDefinition, ItemDefinitionType, MapDefinition, MapItemDefinition,
-    NumberConstraint, NumberConstraintEnum, NumberDefinition, ParameterObjectDefinition,
-    ParameterObjectDefinitionBuilder, StringDefinition, TableDefinition, VariableObjectDefinition,
-    VariableObjectDefinitionBuilder,
+    NumberConstraint, NumberConstraintEnum, NumberDefinition, NumberWithUnitsDefinition,
+    ParameterObjectDefinition, ParameterObjectDefinitionBuilder, StringDefinition, TableDefinition,
+    VariableObjectDefinition, VariableObjectDefinitionBuilder,
 };
 
 // Shareable strings
