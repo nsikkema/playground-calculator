@@ -1,6 +1,7 @@
 use crate::definition::{
     BooleanDefinition, ChoiceDefinition, IntegerDefinition, MapDefinition, NumberDefinition,
-    NumberWithUnitsDefinition, StringDefinition, TableDefinition, UnitDefinition,
+    NumberWithUnitsDefinition, StringDefinition, TableDefinition, TableWithUnitsDefinition,
+    UnitDefinition,
 };
 use crate::prelude::FileDefinition;
 use crate::traits::TreePrint;
@@ -28,6 +29,8 @@ pub enum ItemDefinitionType {
     String(StringDefinition),
     /// A table item.
     Table(TableDefinition),
+    /// A table item with units.
+    TableWithUnits(TableWithUnitsDefinition),
     /// A Unit item.
     Unit(UnitDefinition),
 }
@@ -86,6 +89,12 @@ impl From<TableDefinition> for ItemDefinitionType {
     }
 }
 
+impl From<TableWithUnitsDefinition> for ItemDefinitionType {
+    fn from(definition: TableWithUnitsDefinition) -> Self {
+        ItemDefinitionType::TableWithUnits(definition)
+    }
+}
+
 impl From<UnitDefinition> for ItemDefinitionType {
     fn from(definition: UnitDefinition) -> Self {
         ItemDefinitionType::Unit(definition)
@@ -106,6 +115,7 @@ impl ItemDefinitionType {
             Self::NumberWithUnits(def) => Self::NumberWithUnits(def.launder(store)),
             Self::String(def) => Self::String(def.launder(store)),
             Self::Table(def) => Self::Table(def.launder(store)),
+            Self::TableWithUnits(def) => Self::TableWithUnits(def.launder(store)),
             Self::Unit(def) => Self::Unit(def.launder(store)),
         }
     }
@@ -143,6 +153,9 @@ impl TreePrint for ItemDefinitionType {
             }
             Self::String(basic) => basic.tree_print(f, label, prefix, last),
             Self::Table(table) => table.tree_print(f, label, prefix, last),
+            Self::TableWithUnits(table_with_units) => {
+                table_with_units.tree_print(f, label, prefix, last)
+            }
             Self::Unit(unit) => unit.tree_print(f, label, prefix, last),
         }
     }

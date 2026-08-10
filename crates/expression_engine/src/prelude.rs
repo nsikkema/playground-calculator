@@ -20,8 +20,8 @@ pub use crate::evaluation::expression::function_definition::{
 
 // Computed data
 pub use crate::computed_data::{
-    ComputedItem, ComputedTable, GlobalObjectComputedData, ParameterObjectComputedData,
-    VariableObjectComputedData,
+    ComputedItem, ComputedTable, ComputedTableWithUnits, GlobalObjectComputedData,
+    ParameterObjectComputedData, VariableObjectComputedData,
 };
 
 // Input data

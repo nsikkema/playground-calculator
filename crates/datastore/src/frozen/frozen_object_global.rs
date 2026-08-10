@@ -1,6 +1,8 @@
 use crate::definition::{GlobalObjectDefinition, ItemDefinitionType};
 use crate::editable::GlobalObjectEditable;
-use crate::frozen::{FileFrozen, ItemFrozen, MapFrozen, StringFrozen, TableFrozen};
+use crate::frozen::{
+    FileFrozen, ItemFrozen, MapFrozen, StringFrozen, TableFrozen, TableWithUnitsFrozen,
+};
 use crate::traits::TreePrint;
 use keys::global_key::GlobalKey;
 use serde::{Deserialize, Serialize};
@@ -72,6 +74,14 @@ impl GlobalObjectFrozen {
                 }
                 ItemDefinitionType::Table(table_def) => {
                     items.insert(key, ItemFrozen::Table(TableFrozen::new(table_def.clone())));
+                }
+                ItemDefinitionType::TableWithUnits(table_with_units_def) => {
+                    items.insert(
+                        key,
+                        ItemFrozen::TableWithUnits(TableWithUnitsFrozen::new(
+                            table_with_units_def.clone(),
+                        )),
+                    );
                 }
                 ItemDefinitionType::Unit(unit_def) => {
                     items.insert(

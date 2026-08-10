@@ -1,7 +1,7 @@
 use crate::definition::ItemDefinitionType;
 use crate::editable::{
     BooleanEditable, ChoiceEditable, FileEditable, IntegerEditable, MapEditable, NumberEditable,
-    NumberWithUnitsEditable, StringEditable, TableEditable, UnitEditable,
+    NumberWithUnitsEditable, StringEditable, TableEditable, TableWithUnitsEditable, UnitEditable,
 };
 use crate::frozen::ItemFrozen;
 use crate::traits::TreePrint;
@@ -28,6 +28,8 @@ pub enum ItemEditable {
     String(StringEditable),
     /// A table parameter.
     Table(TableEditable),
+    /// A table parameter with units.
+    TableWithUnits(TableWithUnitsEditable),
     /// A unit parameter.
     Unit(UnitEditable),
 }
@@ -48,6 +50,9 @@ impl ItemEditable {
             }
             ItemFrozen::String(string) => ItemEditable::String(StringEditable::new(string)),
             ItemFrozen::Table(table) => ItemEditable::Table(TableEditable::new(table)),
+            ItemFrozen::TableWithUnits(table_with_units) => {
+                ItemEditable::TableWithUnits(TableWithUnitsEditable::new(table_with_units))
+            }
             ItemFrozen::Unit(unit) => ItemEditable::Unit(UnitEditable::new(unit)),
         }
     }
@@ -67,6 +72,9 @@ impl ItemEditable {
             }
             ItemEditable::String(string) => ItemFrozen::String(string.freeze()),
             ItemEditable::Table(table) => ItemFrozen::Table(table.freeze()),
+            ItemEditable::TableWithUnits(table_with_units) => {
+                ItemFrozen::TableWithUnits(table_with_units.freeze())
+            }
             ItemEditable::Unit(unit) => ItemFrozen::Unit(unit.freeze()),
         }
     }
@@ -86,6 +94,9 @@ impl ItemEditable {
             }
             ItemEditable::String(b) => ItemDefinitionType::String(b.definition().clone()),
             ItemEditable::Table(t) => ItemDefinitionType::Table(t.definition().clone()),
+            ItemEditable::TableWithUnits(twu) => {
+                ItemDefinitionType::TableWithUnits(twu.definition().clone())
+            }
             ItemEditable::Unit(u) => ItemDefinitionType::Unit(u.definition().clone()),
         }
     }
@@ -273,6 +284,9 @@ impl TreePrint for ItemEditable {
             }
             Self::String(string) => string.tree_print(f, label, prefix, last),
             Self::Table(table) => table.tree_print(f, label, prefix, last),
+            Self::TableWithUnits(table_with_units) => {
+                table_with_units.tree_print(f, label, prefix, last)
+            }
             Self::Unit(unit) => unit.tree_print(f, label, prefix, last),
         }
     }

@@ -80,7 +80,9 @@ fn test_global_object_input_data() {
     // Basic items should keep their key and be exposed as `Basic` entries.
     match data.get("g_string_field").unwrap() {
         ObjectItemInputData::Basic(basic) => assert_eq!(basic.data().as_ref(), ""),
-        ObjectItemInputData::BasicWithUnits(_) | ObjectItemInputData::Table(_) => {
+        ObjectItemInputData::BasicWithUnits(_)
+        | ObjectItemInputData::Table(_)
+        | ObjectItemInputData::TableWithUnits(_) => {
             panic!("expected basic data")
         }
     }
@@ -91,7 +93,9 @@ fn test_global_object_input_data() {
             assert_eq!(table.data().len(), 1);
             assert_eq!(table.data()[0][0].as_ref(), "1");
         }
-        ObjectItemInputData::Basic(_) | ObjectItemInputData::BasicWithUnits(_) => {
+        ObjectItemInputData::Basic(_)
+        | ObjectItemInputData::BasicWithUnits(_)
+        | ObjectItemInputData::TableWithUnits(_) => {
             panic!("expected table data")
         }
     }
@@ -101,13 +105,17 @@ fn test_global_object_input_data() {
         ObjectItemInputData::Basic(basic) => {
             assert_eq!(basic.data().as_ref(), "entry1-value");
         }
-        ObjectItemInputData::BasicWithUnits(_) | ObjectItemInputData::Table(_) => {
+        ObjectItemInputData::BasicWithUnits(_)
+        | ObjectItemInputData::Table(_)
+        | ObjectItemInputData::TableWithUnits(_) => {
             panic!("expected basic data")
         }
     }
     match data.get("g_map_field[entry1][field2]").unwrap() {
         ObjectItemInputData::Basic(basic) => assert_eq!(basic.data().as_ref(), ""),
-        ObjectItemInputData::BasicWithUnits(_) | ObjectItemInputData::Table(_) => {
+        ObjectItemInputData::BasicWithUnits(_)
+        | ObjectItemInputData::Table(_)
+        | ObjectItemInputData::TableWithUnits(_) => {
             panic!("expected basic data")
         }
     }
@@ -139,13 +147,17 @@ fn test_parameter_object_input_data() {
 
     match data.get("p_string_field").unwrap() {
         ObjectItemInputData::Basic(basic) => assert_eq!(basic.data().as_ref(), ""),
-        ObjectItemInputData::BasicWithUnits(_) | ObjectItemInputData::Table(_) => {
+        ObjectItemInputData::BasicWithUnits(_)
+        | ObjectItemInputData::Table(_)
+        | ObjectItemInputData::TableWithUnits(_) => {
             panic!("expected table data")
         }
     }
     match data.get("p_table_field").unwrap() {
         ObjectItemInputData::Table(table) => assert_eq!(table.data().len(), 1),
-        ObjectItemInputData::Basic(_) | ObjectItemInputData::BasicWithUnits(_) => {
+        ObjectItemInputData::Basic(_)
+        | ObjectItemInputData::BasicWithUnits(_)
+        | ObjectItemInputData::TableWithUnits(_) => {
             panic!("expected table data")
         }
     }
@@ -167,13 +179,17 @@ fn test_variable_object_input_data() {
 
     match data.get("v_string_field").unwrap() {
         ObjectItemInputData::Basic(basic) => assert_eq!(basic.data().as_ref(), ""),
-        ObjectItemInputData::BasicWithUnits(_) | ObjectItemInputData::Table(_) => {
+        ObjectItemInputData::BasicWithUnits(_)
+        | ObjectItemInputData::Table(_)
+        | ObjectItemInputData::TableWithUnits(_) => {
             panic!("expected basic data")
         }
     }
     match data.get("v_table_field").unwrap() {
         ObjectItemInputData::Table(table) => assert_eq!(table.data().len(), 1),
-        ObjectItemInputData::Basic(_) | ObjectItemInputData::BasicWithUnits(_) => {
+        ObjectItemInputData::Basic(_)
+        | ObjectItemInputData::BasicWithUnits(_)
+        | ObjectItemInputData::TableWithUnits(_) => {
             panic!("expected table data")
         }
     }

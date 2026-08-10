@@ -1,7 +1,7 @@
 use crate::definition::{MapDefinition, MapItemDefinition};
 use crate::editable::{
     BooleanEditable, ChoiceEditable, FileEditable, IntegerEditable, NumberEditable,
-    NumberWithUnitsEditable, StringEditable, TableEditable, UnitEditable,
+    NumberWithUnitsEditable, StringEditable, TableEditable, TableWithUnitsEditable, UnitEditable,
 };
 use crate::frozen::{MapEntryFrozen, MapFrozen, MapItemFrozen};
 use crate::traits::TreePrint;
@@ -29,6 +29,8 @@ pub enum MapItemEditable {
     String(StringEditable),
     /// A table value.
     Table(TableEditable),
+    /// A table with units value.
+    TableWithUnits(TableWithUnitsEditable),
     /// A unit value.
     Unit(UnitEditable),
 }
@@ -52,6 +54,9 @@ impl MapItemEditable {
             }
             MapItemFrozen::String(basic) => MapItemEditable::String(StringEditable::new(basic)),
             MapItemFrozen::Table(table) => MapItemEditable::Table(TableEditable::new(table)),
+            MapItemFrozen::TableWithUnits(table_with_units) => {
+                MapItemEditable::TableWithUnits(TableWithUnitsEditable::new(table_with_units))
+            }
             MapItemFrozen::Unit(unit) => MapItemEditable::Unit(UnitEditable::new(unit)),
         }
     }
@@ -70,6 +75,9 @@ impl MapItemEditable {
             }
             MapItemEditable::String(basic) => MapItemFrozen::String(basic.freeze()),
             MapItemEditable::Table(table) => MapItemFrozen::Table(table.freeze()),
+            MapItemEditable::TableWithUnits(table_with_units) => {
+                MapItemFrozen::TableWithUnits(table_with_units.freeze())
+            }
             MapItemEditable::Unit(unit) => MapItemFrozen::Unit(unit.freeze()),
         }
     }
@@ -240,6 +248,9 @@ impl MapItemEditable {
             }
             MapItemEditable::String(basic) => MapItemDefinition::String(basic.definition().clone()),
             MapItemEditable::Table(table) => MapItemDefinition::Table(table.definition().clone()),
+            MapItemEditable::TableWithUnits(table_with_units) => {
+                MapItemDefinition::TableWithUnits(table_with_units.definition().clone())
+            }
             MapItemEditable::Unit(unit) => MapItemDefinition::Unit(unit.definition().clone()),
         }
     }
@@ -276,6 +287,9 @@ impl TreePrint for MapItemEditable {
             }
             MapItemEditable::String(basic) => basic.tree_print(f, label, prefix, last),
             MapItemEditable::Table(table) => table.tree_print(f, label, prefix, last),
+            MapItemEditable::TableWithUnits(table_with_units) => {
+                table_with_units.tree_print(f, label, prefix, last)
+            }
             MapItemEditable::Unit(unit) => unit.tree_print(f, label, prefix, last),
         }
     }

@@ -1,7 +1,7 @@
-use crate::BasicDefinition;
 use crate::input_basic_with_units::BasicInputWithUnitsData;
 use crate::input_data::input_basic::BasicInputData;
 use crate::input_data::input_table::TableInputData;
+use crate::{BasicDefinition, TableWithUnitsInputData};
 use datastore::frozen::{
     GlobalObjectFrozen, ItemFrozen, MapItemFrozen, ParameterObjectFrozen, VariableObjectFrozen,
 };
@@ -18,6 +18,8 @@ pub enum ObjectItemInputData {
     BasicWithUnits(BasicInputWithUnitsData),
     /// Table input data item.
     Table(TableInputData),
+    /// Table input data item with units.
+    TableWithUnits(TableWithUnitsInputData),
 }
 
 /// Converts a single `MapItemFrozen` (an entry within a `Map` item) into its
@@ -60,6 +62,14 @@ fn map_item_to_input_data(map_item: &MapItemFrozen) -> ObjectItemInputData {
             table.parameter().clone(),
             table.rows().to_vec(),
         )),
+        MapItemFrozen::TableWithUnits(table_with_units) => {
+            ObjectItemInputData::TableWithUnits(TableWithUnitsInputData::new(
+                table_with_units.definition().clone(),
+                table_with_units.parameter().clone(),
+                table_with_units.units().to_vec(),
+                table_with_units.rows().to_vec(),
+            ))
+        }
         MapItemFrozen::Unit(unit) => ObjectItemInputData::Basic(BasicInputData::new(
             BasicDefinition::Unit(unit.definition().clone()),
             unit.value(),
@@ -160,6 +170,17 @@ fn item_to_input_data(
                     table.definition().clone(),
                     table.parameter().clone(),
                     table.rows().to_vec(),
+                )),
+            );
+        }
+        ItemFrozen::TableWithUnits(table_with_units) => {
+            map.insert(
+                key,
+                ObjectItemInputData::TableWithUnits(TableWithUnitsInputData::new(
+                    table_with_units.definition().clone(),
+                    table_with_units.parameter().clone(),
+                    table_with_units.units().to_vec(),
+                    table_with_units.rows().to_vec(),
                 )),
             );
         }

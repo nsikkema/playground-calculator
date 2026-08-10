@@ -26,7 +26,8 @@ pub use crate::definition::{
     IntegerConstraintEnum, IntegerDefinition, ItemDefinitionType, MapDefinition, MapItemDefinition,
     NumberConstraint, NumberConstraintEnum, NumberDefinition, NumberWithUnitsDefinition,
     ParameterObjectDefinition, ParameterObjectDefinitionBuilder, StringDefinition, TableDefinition,
-    UnitDefinition, VariableObjectDefinition, VariableObjectDefinitionBuilder,
+    TableWithUnitsDefinition, UnitDefinition, VariableObjectDefinition,
+    VariableObjectDefinitionBuilder,
 };
 
 // Shareable strings
@@ -36,13 +37,15 @@ pub use shareable_string::{ShareableString, SharedStringStore, SharedStringTrans
 pub use crate::frozen::{
     BooleanFrozen, ChoiceFrozen, FileFrozen, GlobalObjectFrozen, IntegerFrozen, ItemFrozen,
     MapEntryFrozen, MapFrozen, MapItemFrozen, NumberFrozen, NumberWithUnitsFrozen,
-    ParameterObjectFrozen, StringFrozen, TableFrozen, UnitFrozen, VariableObjectFrozen,
+    ParameterObjectFrozen, StringFrozen, TableFrozen, TableWithUnitsFrozen, UnitFrozen,
+    VariableObjectFrozen,
 };
 
 // Editable data
 pub use crate::editable::{
     BooleanEditable, ChoiceEditable, FileEditable, GlobalObjectEditable, IntegerEditable,
     ItemEditable, MapEditable, MapEntryEditable, MapItemEditable, NumberEditable,
-    NumberWithUnitsEditable, ParameterObjectEditable, StringEditable, TableEditable, UnitEditable,
-    VariableObjectEditable, editable_set_map_value, editable_set_value,
+    NumberWithUnitsEditable, ParameterObjectEditable, StringEditable, TableEditable,
+    TableWithUnitsEditable, UnitEditable, VariableObjectEditable, editable_set_map_value,
+    editable_set_value,
 };

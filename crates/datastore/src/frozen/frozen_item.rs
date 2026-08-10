@@ -1,7 +1,7 @@
 use crate::definition::ItemDefinitionType;
 use crate::frozen::{
     BooleanFrozen, ChoiceFrozen, FileFrozen, IntegerFrozen, MapFrozen, NumberFrozen,
-    NumberWithUnitsFrozen, StringFrozen, TableFrozen, UnitFrozen,
+    NumberWithUnitsFrozen, StringFrozen, TableFrozen, TableWithUnitsFrozen, UnitFrozen,
 };
 use crate::traits::TreePrint;
 use serde::{Deserialize, Serialize};
@@ -27,6 +27,8 @@ pub enum ItemFrozen {
     String(StringFrozen),
     /// A table parameter.
     Table(TableFrozen),
+    /// A table parameter with units.
+    TableWithUnits(TableWithUnitsFrozen),
     /// A unit parameter.
     Unit(UnitFrozen),
 }
@@ -47,6 +49,9 @@ impl ItemFrozen {
             }
             ItemFrozen::String(s) => ItemDefinitionType::String(s.definition().clone()),
             ItemFrozen::Table(t) => ItemDefinitionType::Table(t.definition().clone()),
+            ItemFrozen::TableWithUnits(twu) => {
+                ItemDefinitionType::TableWithUnits(twu.definition().clone())
+            }
             ItemFrozen::Unit(u) => ItemDefinitionType::Unit(u.definition().clone()),
         }
     }
@@ -64,6 +69,7 @@ impl ItemFrozen {
             Self::NumberWithUnits(nwu) => nwu.hash(),
             Self::String(s) => s.hash(),
             Self::Table(t) => t.hash(),
+            Self::TableWithUnits(twu) => twu.hash(),
             Self::Unit(u) => u.hash(),
         }
     }
@@ -152,6 +158,9 @@ impl TreePrint for ItemFrozen {
             }
             Self::String(basic) => basic.tree_print(f, label, prefix, last),
             Self::Table(table) => table.tree_print(f, label, prefix, last),
+            Self::TableWithUnits(table_with_units) => {
+                table_with_units.tree_print(f, label, prefix, last)
+            }
             Self::Unit(unit) => unit.tree_print(f, label, prefix, last),
         }
     }

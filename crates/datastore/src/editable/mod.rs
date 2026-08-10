@@ -26,6 +26,8 @@ pub mod editable_object_variable;
 pub mod editable_string;
 /// Editable table data.
 pub mod editable_table;
+/// Editable table with units data.
+pub mod editable_table_with_units;
 /// Editable unit data.
 pub mod editable_unit;
 
@@ -43,4 +45,5 @@ pub use editable_object_parameter::*;
 pub use editable_object_variable::*;
 pub use editable_string::*;
 pub use editable_table::*;
+pub use editable_table_with_units::*;
 pub use editable_unit::*;

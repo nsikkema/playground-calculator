@@ -1,5 +1,6 @@
 use shareable_string::ShareableString;
 use std::fmt;
+use units::UnitId;
 
 /// Represents a computed table, consisting of column keys and rows of numeric values.
 #[derive(Debug, Clone, PartialEq)]
@@ -11,7 +12,7 @@ pub struct ComputedTable {
 }
 
 impl ComputedTable {
-    /// Creates a new `ComputedTable` with the given column `keys` and numeric `rows`.
+    /// Creates a new unitless `ComputedTable` with the given column `keys` and numeric `rows`.
     pub(crate) const fn new(keys: Vec<ShareableString>, rows: Vec<Vec<f64>>) -> Self {
         Self { keys, rows }
     }
@@ -67,6 +68,91 @@ impl ComputedTable {
     }
 }
 
+/// Represents a computed table with canonical units for one or more columns.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ComputedTableWithUnits {
+    /// The table's column keys and numeric rows.
+    table: ComputedTable,
+    /// The canonical unit for each column, in the same order as [`Self::keys`].
+    units: Vec<UnitId>,
+}
+
+impl ComputedTableWithUnits {
+    /// Creates a computed table with units for at least one column.
+    pub(crate) fn new(keys: Vec<ShareableString>, units: Vec<UnitId>, rows: Vec<Vec<f64>>) -> Self {
+        debug_assert_eq!(keys.len(), units.len());
+        debug_assert!(units.iter().any(|unit| *unit != UnitId::None));
+
+        Self {
+            table: ComputedTable::new(keys, rows),
+            units,
+        }
+    }
+
+    /// Returns the unitless table data shared by this unit-bearing table.
+    #[must_use]
+    pub(crate) const fn as_table(&self) -> &ComputedTable {
+        &self.table
+    }
+
+    /// Splits this table into its numeric data and column units.
+    #[must_use]
+    pub(crate) fn into_table_and_units(self) -> (ComputedTable, Vec<UnitId>) {
+        (self.table, self.units)
+    }
+
+    /// Discards column units and returns this table's numeric data.
+    #[must_use]
+    pub(crate) fn into_table(self) -> ComputedTable {
+        self.table
+    }
+
+    /// Returns a reference to the keys of the computed table.
+    #[must_use]
+    pub fn keys(&self) -> &[ShareableString] {
+        self.table.keys()
+    }
+
+    /// Returns the canonical units of the table columns, in key order.
+    #[must_use]
+    pub fn units(&self) -> &[UnitId] {
+        &self.units
+    }
+
+    /// Returns a reference to the rows of the computed table.
+    #[must_use]
+    pub fn rows(&self) -> &[Vec<f64>] {
+        self.table.rows()
+    }
+
+    /// Returns the value of a cell by row and column index.
+    #[must_use]
+    pub fn get_cell(&self, row_index: usize, column_index: usize) -> Option<f64> {
+        self.table.get_cell(row_index, column_index)
+    }
+
+    /// Returns the value of a cell by row index and column name.
+    pub fn get_cell_by_name<S: Into<ShareableString>>(
+        &self,
+        row_index: usize,
+        column_name: S,
+    ) -> Option<f64> {
+        self.table.get_cell_by_name(row_index, column_name)
+    }
+
+    /// Returns the number of rows in the computed table.
+    #[must_use]
+    pub fn row_count(&self) -> usize {
+        self.table.row_count()
+    }
+
+    /// Returns the number of columns in the computed table.
+    #[must_use]
+    pub fn column_count(&self) -> usize {
+        self.table.column_count()
+    }
+}
+
 /// Represents a computed item that can be a float, string, or table.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ComputedItem {
@@ -84,6 +170,8 @@ pub enum ComputedItem {
     File(ShareableString),
     /// A table represented as a `ComputedTable`.
     Table(ComputedTable),
+    /// A table represented as a `ComputedTableWithUnits`.
+    TableWithUnits(ComputedTableWithUnits),
 }
 
 impl fmt::Display for ComputedItem {
@@ -95,7 +183,7 @@ impl fmt::Display for ComputedItem {
             ComputedItem::String(value)
             | ComputedItem::File(value)
             | ComputedItem::Identifier(value) => write!(f, "{value}"),
-            ComputedItem::Table(_) => write!(f, "{self:?}"),
+            ComputedItem::Table(_) | ComputedItem::TableWithUnits(_) => write!(f, "{self:?}"),
         }
     }
 }

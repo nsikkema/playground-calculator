@@ -16,7 +16,9 @@ fn table_data_for(table: TableFrozen) -> TableInputData {
 
     match input.data().get("g_field").unwrap() {
         ObjectItemInputData::Table(table) => table.clone(),
-        ObjectItemInputData::Basic(_) | ObjectItemInputData::BasicWithUnits(_) => {
+        ObjectItemInputData::Basic(_)
+        | ObjectItemInputData::BasicWithUnits(_)
+        | ObjectItemInputData::TableWithUnits(_) => {
             panic!("expected table data")
         }
     }
