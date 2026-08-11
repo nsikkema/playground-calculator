@@ -78,86 +78,51 @@ fn arg<'a>(
 fn sin(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     let arg = arg(args, 0, "sin")?;
 
-    match arg {
-        ComputedItem::Float(value) => Ok(ComputedItem::Float(value.sin())),
-        _ => Err(ExpressionError::new(
-            crate::ExpressionCategory::Evaluation,
-            "sin function argument must be a number".to_string(),
-        )),
-    }
+    Ok(ComputedItem::Float(as_float(arg, "sin")?.sin()))
 }
 
 /// Computes the cosine of a float argument (radians).
 fn cos(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     let arg = arg(args, 0, "cos")?;
 
-    match arg {
-        ComputedItem::Float(value) => Ok(ComputedItem::Float(value.cos())),
-        _ => Err(ExpressionError::new(
-            crate::ExpressionCategory::Evaluation,
-            "cos function argument must be a number".to_string(),
-        )),
-    }
+    Ok(ComputedItem::Float(as_float(arg, "cos")?.cos()))
 }
 
 /// Computes the tangent of a float argument (radians).
 fn tan(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     let arg = arg(args, 0, "tan")?;
 
-    match arg {
-        ComputedItem::Float(value) => Ok(ComputedItem::Float(value.tan())),
-        _ => Err(ExpressionError::new(
-            crate::ExpressionCategory::Evaluation,
-            "tan function argument must be a number".to_string(),
-        )),
-    }
+    Ok(ComputedItem::Float(as_float(arg, "tan")?.tan()))
 }
 
 /// Computes the arcsine of a float argument, returning a value in radians.
 fn arcsin(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     let arg = arg(args, 0, "arcsin")?;
 
-    match arg {
-        ComputedItem::Float(value) => Ok(ComputedItem::Float(value.asin())),
-        _ => Err(ExpressionError::new(
-            crate::ExpressionCategory::Evaluation,
-            "arcsin function argument must be a number".to_string(),
-        )),
-    }
+    Ok(ComputedItem::Float(as_float(arg, "arcsin")?.asin()))
 }
 
 /// Computes the arccosine of a float argument, returning a value in radians.
 fn arccos(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     let arg = arg(args, 0, "arccos")?;
 
-    match arg {
-        ComputedItem::Float(value) => Ok(ComputedItem::Float(value.acos())),
-        _ => Err(ExpressionError::new(
-            crate::ExpressionCategory::Evaluation,
-            "arccos function argument must be a number".to_string(),
-        )),
-    }
+    Ok(ComputedItem::Float(as_float(arg, "arccos")?.acos()))
 }
 
 /// Computes the arctangent of a float argument, returning a value in radians.
 fn arctan(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     let arg = arg(args, 0, "arctan")?;
 
-    match arg {
-        ComputedItem::Float(value) => Ok(ComputedItem::Float(value.atan())),
-        _ => Err(ExpressionError::new(
-            crate::ExpressionCategory::Evaluation,
-            "arctan function argument must be a number".to_string(),
-        )),
-    }
+    Ok(ComputedItem::Float(as_float(arg, "arctan")?.atan()))
 }
 
-/// Extracts a floating-point value from a `ComputedItem`. Only the `Float`
-/// variant is accepted; `Integer` is intentionally rejected so that integer
-/// and floating-point values are never silently converted into one another.
+/// Extracts a floating-point value from a `ComputedItem`. Both unitless and
+/// unit-bearing floats are accepted; integers are intentionally rejected so
+/// that integer and floating-point values are never silently converted into
+/// one another.
 fn as_float(item: &ComputedItem, function_name: &str) -> Result<f64, ExpressionError> {
     match item {
-        ComputedItem::Float(value) => Ok(*value),
+        ComputedItem::Float(value) | ComputedItem::FloatWithUnit { value, .. } => Ok(*value),
         _ => Err(ExpressionError::new(
             crate::ExpressionCategory::Evaluation,
             format!("{function_name} function argument must be a float"),
@@ -178,7 +143,9 @@ fn mixed_numeric_types_error(function_name: &str) -> ExpressionError {
 /// Returns the absolute value of a numeric argument (float or integer).
 fn abs(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     match arg(args, 0, "abs")? {
-        ComputedItem::Float(value) => Ok(ComputedItem::Float(value.abs())),
+        ComputedItem::Float(value) | ComputedItem::FloatWithUnit { value, .. } => {
+            Ok(ComputedItem::Float(value.abs()))
+        }
         ComputedItem::Integer(value) => Ok(ComputedItem::Integer(value.abs())),
         _ => Err(ExpressionError::new(
             crate::ExpressionCategory::Evaluation,
@@ -196,7 +163,9 @@ fn sqrt(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 /// Returns the smallest integer greater than or equal to the argument.
 fn ceil(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     match arg(args, 0, "ceil")? {
-        ComputedItem::Float(value) => Ok(ComputedItem::Float(value.ceil())),
+        ComputedItem::Float(value) | ComputedItem::FloatWithUnit { value, .. } => {
+            Ok(ComputedItem::Float(value.ceil()))
+        }
         ComputedItem::Integer(value) => Ok(ComputedItem::Integer(*value)),
         _ => Err(ExpressionError::new(
             crate::ExpressionCategory::Evaluation,
@@ -208,7 +177,9 @@ fn ceil(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 /// Returns the largest integer less than or equal to the argument.
 fn floor(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     match arg(args, 0, "floor")? {
-        ComputedItem::Float(value) => Ok(ComputedItem::Float(value.floor())),
+        ComputedItem::Float(value) | ComputedItem::FloatWithUnit { value, .. } => {
+            Ok(ComputedItem::Float(value.floor()))
+        }
         ComputedItem::Integer(value) => Ok(ComputedItem::Integer(*value)),
         _ => Err(ExpressionError::new(
             crate::ExpressionCategory::Evaluation,
@@ -220,7 +191,9 @@ fn floor(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 /// Rounds the argument to the nearest integer (ties round away from zero).
 fn round(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     match arg(args, 0, "round")? {
-        ComputedItem::Float(value) => Ok(ComputedItem::Float(value.round())),
+        ComputedItem::Float(value) | ComputedItem::FloatWithUnit { value, .. } => {
+            Ok(ComputedItem::Float(value.round()))
+        }
         ComputedItem::Integer(value) => Ok(ComputedItem::Integer(*value)),
         _ => Err(ExpressionError::new(
             crate::ExpressionCategory::Evaluation,
@@ -232,13 +205,11 @@ fn round(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 /// Returns the minimum value among one or more numeric arguments of the same type.
 fn min(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     match arg(args, 0, "min")? {
-        ComputedItem::Float(first) => {
-            let mut result = *first;
+        ComputedItem::Float(_) | ComputedItem::FloatWithUnit { .. } => {
+            let mut result = as_float(arg(args, 0, "min")?, "min")?;
             for arg in args.get(1..).unwrap_or_default() {
-                match arg {
-                    ComputedItem::Float(value) => result = result.min(*value),
-                    _ => return Err(mixed_numeric_types_error("min")),
-                }
+                result =
+                    result.min(as_float(arg, "min").map_err(|_| mixed_numeric_types_error("min"))?);
             }
             Ok(ComputedItem::Float(result))
         }
@@ -262,13 +233,11 @@ fn min(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 /// Returns the maximum value among one or more numeric arguments of the same type.
 fn max(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     match arg(args, 0, "max")? {
-        ComputedItem::Float(first) => {
-            let mut result = *first;
+        ComputedItem::Float(_) | ComputedItem::FloatWithUnit { .. } => {
+            let mut result = as_float(arg(args, 0, "max")?, "max")?;
             for arg in args.get(1..).unwrap_or_default() {
-                match arg {
-                    ComputedItem::Float(value) => result = result.max(*value),
-                    _ => return Err(mixed_numeric_types_error("max")),
-                }
+                result =
+                    result.max(as_float(arg, "max").map_err(|_| mixed_numeric_types_error("max"))?);
             }
             Ok(ComputedItem::Float(result))
         }
@@ -297,17 +266,20 @@ fn clamp(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
         arg(args, 2, "clamp")?,
     ) {
         (
-            ComputedItem::Float(value),
-            ComputedItem::Float(min_value),
-            ComputedItem::Float(max_value),
+            ComputedItem::Float(_) | ComputedItem::FloatWithUnit { .. },
+            ComputedItem::Float(_) | ComputedItem::FloatWithUnit { .. },
+            ComputedItem::Float(_) | ComputedItem::FloatWithUnit { .. },
         ) => {
+            let value = as_float(arg(args, 0, "clamp")?, "clamp")?;
+            let min_value = as_float(arg(args, 1, "clamp")?, "clamp")?;
+            let max_value = as_float(arg(args, 2, "clamp")?, "clamp")?;
             if min_value > max_value {
                 return Err(ExpressionError::new(
                     crate::ExpressionCategory::Evaluation,
                     "clamp function min argument must not be greater than max argument".to_string(),
                 ));
             }
-            Ok(ComputedItem::Float(value.clamp(*min_value, *max_value)))
+            Ok(ComputedItem::Float(value.clamp(min_value, max_value)))
         }
         (
             ComputedItem::Integer(value),
@@ -414,7 +386,7 @@ fn len(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 fn to_int(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     match arg(args, 0, "to_int")? {
         ComputedItem::Integer(value) => Ok(ComputedItem::Integer(*value)),
-        ComputedItem::Float(value) => {
+        ComputedItem::Float(value) | ComputedItem::FloatWithUnit { value, .. } => {
             let int_value = truncated_f64_to_i64(*value, "to_int")?;
             Ok(ComputedItem::Integer(int_value))
         }
@@ -429,7 +401,9 @@ fn to_int(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
 /// exactly representable range.
 fn to_float(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
     match arg(args, 0, "to_float")? {
-        ComputedItem::Float(value) => Ok(ComputedItem::Float(*value)),
+        ComputedItem::Float(value) | ComputedItem::FloatWithUnit { value, .. } => {
+            Ok(ComputedItem::Float(*value))
+        }
         ComputedItem::Integer(value) => {
             let float_value = i64_to_f64(*value, "to_float")?;
             Ok(ComputedItem::Float(float_value))

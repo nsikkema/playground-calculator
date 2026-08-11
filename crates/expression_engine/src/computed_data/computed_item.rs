@@ -119,6 +119,23 @@ impl ComputedTableWithUnits {
         &self.units
     }
 
+    /// Returns the unit associated with a column index.
+    #[must_use]
+    pub fn get_unit(&self, column_index: usize) -> Option<UnitId> {
+        self.units.get(column_index).copied()
+    }
+
+    /// Returns the unit associated with a column name.
+    #[must_use]
+    pub fn get_unit_by_name<S: Into<ShareableString>>(&self, column_name: S) -> Option<UnitId> {
+        let column_name = column_name.into();
+        self.table
+            .keys()
+            .iter()
+            .position(|key| key == &column_name)
+            .and_then(|column_index| self.get_unit(column_index))
+    }
+
     /// Returns a reference to the rows of the computed table.
     #[must_use]
     pub fn rows(&self) -> &[Vec<f64>] {
@@ -162,6 +179,13 @@ pub enum ComputedItem {
     Integer(i64),
     /// A floating-point number.
     Float(f64),
+    /// A floating-point number with a concrete unit.
+    FloatWithUnit {
+        /// The numeric value, expressed in `unit`.
+        value: f64,
+        /// The concrete unit associated with `value`.
+        unit: UnitId,
+    },
     /// A String value.
     String(ShareableString),
     /// An Identifier value.
@@ -182,6 +206,7 @@ impl fmt::Display for ComputedItem {
             ComputedItem::Boolean(value) => write!(f, "{value}"),
             ComputedItem::Integer(value) => write!(f, "{value}"),
             ComputedItem::Float(value) => write!(f, "{value}"),
+            ComputedItem::FloatWithUnit { value, unit } => write!(f, "{value} {unit:?}"),
             ComputedItem::String(value)
             | ComputedItem::File(value)
             | ComputedItem::Identifier(value) => write!(f, "{value}"),
