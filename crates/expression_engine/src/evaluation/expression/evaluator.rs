@@ -639,7 +639,16 @@ fn evaluate_expression(
                     source,
                     operator_span,
                 ),
-
+                (ComputedItem::Unit(left_unit), ComputedItem::Unit(right_unit)) => match operator {
+                    Operators::Equal => Ok(ComputedItem::Boolean(left_unit == right_unit)),
+                    Operators::NotEqual => Ok(ComputedItem::Boolean(left_unit != right_unit)),
+                    _ => Err(ExpressionError::new_complex(
+                        ExpressionCategory::Evaluation,
+                        format!("Unsupported operator for units: {operator:?}"),
+                        source.clone(),
+                        SpanSet::from_span(operator_span),
+                    )),
+                },
                 (
                     ComputedItem::Table(_) | ComputedItem::TableWithUnits(_),
                     ComputedItem::Table(_) | ComputedItem::TableWithUnits(_),
@@ -658,7 +667,8 @@ fn evaluate_expression(
                     | ComputedItem::Integer(_)
                     | ComputedItem::String(_)
                     | ComputedItem::Table(_)
-                    | ComputedItem::TableWithUnits(_),
+                    | ComputedItem::TableWithUnits(_)
+                    | ComputedItem::Unit(_),
                 )
                 | (
                     ComputedItem::File(_),
@@ -668,7 +678,8 @@ fn evaluate_expression(
                     | ComputedItem::Integer(_)
                     | ComputedItem::String(_)
                     | ComputedItem::Table(_)
-                    | ComputedItem::TableWithUnits(_),
+                    | ComputedItem::TableWithUnits(_)
+                    | ComputedItem::Unit(_),
                 )
                 | (
                     ComputedItem::Float(_),
@@ -678,7 +689,8 @@ fn evaluate_expression(
                     | ComputedItem::Integer(_)
                     | ComputedItem::String(_)
                     | ComputedItem::Table(_)
-                    | ComputedItem::TableWithUnits(_),
+                    | ComputedItem::TableWithUnits(_)
+                    | ComputedItem::Unit(_),
                 )
                 | (
                     ComputedItem::Identifier(_) | ComputedItem::String(_),
@@ -687,7 +699,8 @@ fn evaluate_expression(
                     | ComputedItem::Float(_)
                     | ComputedItem::Integer(_)
                     | ComputedItem::Table(_)
-                    | ComputedItem::TableWithUnits(_),
+                    | ComputedItem::TableWithUnits(_)
+                    | ComputedItem::Unit(_),
                 )
                 | (
                     ComputedItem::Integer(_),
@@ -697,7 +710,8 @@ fn evaluate_expression(
                     | ComputedItem::Identifier(_)
                     | ComputedItem::String(_)
                     | ComputedItem::Table(_)
-                    | ComputedItem::TableWithUnits(_),
+                    | ComputedItem::TableWithUnits(_)
+                    | ComputedItem::Unit(_),
                 )
                 | (
                     ComputedItem::Table(_) | ComputedItem::TableWithUnits(_),
@@ -706,7 +720,19 @@ fn evaluate_expression(
                     | ComputedItem::Float(_)
                     | ComputedItem::Integer(_)
                     | ComputedItem::Identifier(_)
-                    | ComputedItem::String(_),
+                    | ComputedItem::String(_)
+                    | ComputedItem::Unit(_),
+                )
+                | (
+                    ComputedItem::Unit(_),
+                    ComputedItem::Boolean(_)
+                    | ComputedItem::File(_)
+                    | ComputedItem::Float(_)
+                    | ComputedItem::Identifier(_)
+                    | ComputedItem::Integer(_)
+                    | ComputedItem::String(_)
+                    | ComputedItem::Table(_)
+                    | ComputedItem::TableWithUnits(_),
                 ) => Err(ExpressionError::new_complex(
                     ExpressionCategory::Evaluation,
                     format!("Unsupported operator for mixed types: {operator:?}"),
@@ -754,48 +780,41 @@ fn evaluate_bare_identifier_choice(
     }
 }
 
-/// Validates a bare-identifier unit value against the definition's unit family.
-fn evaluate_bare_identifier_unit(
-    unit_definition: &datastore::definition::UnitDefinition,
-    name: &str,
-    source: &ShareableString,
-    span: Span,
-) -> Result<ComputedItem, ExpressionError> {
-    let value = ShareableString::from(name);
-    if unit_definition.contains(value.clone()) {
-        Ok(ComputedItem::Identifier(value))
-    } else {
-        Err(ExpressionError::new_complex(
-            ExpressionCategory::Evaluation,
-            format!("Value '{value}' is not a valid unit."),
-            source.clone(),
-            SpanSet::from_span(span),
-        ))
-    }
-}
-
-/// Validates that a computed string belongs to a unit definition's family.
+/// Validates that a computed unit value belongs to a unit definition's family.
 fn validate_unit_value(
     unit_definition: &datastore::definition::UnitDefinition,
     computed: &ComputedItem,
     source: &ShareableString,
     span: Span,
 ) -> Result<ComputedItem, ExpressionError> {
-    if let ComputedItem::String(value) | ComputedItem::Identifier(value) = &computed {
-        if unit_definition.contains(value) {
-            Ok(ComputedItem::Identifier(value.clone()))
-        } else {
-            Err(ExpressionError::new_complex(
+    let unit = match computed {
+        ComputedItem::Unit(unit) => *unit,
+        ComputedItem::String(value) | ComputedItem::Identifier(value) => {
+            UnitId::from_unit_id_str(value.as_str()).ok_or_else(|| {
+                ExpressionError::new_complex(
+                    ExpressionCategory::Evaluation,
+                    format!("Value '{value}' is not a valid unit."),
+                    source.clone(),
+                    SpanSet::from_span(span),
+                )
+            })?
+        }
+        _ => {
+            return Err(ExpressionError::new_complex(
                 ExpressionCategory::Evaluation,
-                format!("Value '{value}' is not a valid unit."),
+                format!("Expected a unit value, but got {computed:?}."),
                 source.clone(),
                 SpanSet::from_span(span),
-            ))
+            ));
         }
+    };
+
+    if unit_definition.unit_family().unit_ids().contains(&unit) {
+        Ok(ComputedItem::Unit(unit))
     } else {
         Err(ExpressionError::new_complex(
             ExpressionCategory::Evaluation,
-            format!("Expected a string value for unit, but got {computed:?}."),
+            format!("Value '{}' is not a valid unit.", unit.string_id()),
             source.clone(),
             SpanSet::from_span(span),
         ))
@@ -820,7 +839,8 @@ fn evaluate_basic_expression(
                 return evaluate_bare_identifier_choice(choice_definition, name, source, span);
             }
             Unit(unit_definition) => {
-                return evaluate_bare_identifier_unit(unit_definition, name, source, span);
+                let computed = ComputedItem::Identifier(name.clone().into());
+                return validate_unit_value(unit_definition, &computed, source, span);
             }
             _ => {}
         }
@@ -1744,6 +1764,46 @@ mod tests {
             ComputedItem::Boolean(value) => assert_eq!(*value, expected_value),
             _ => panic!("Expected a boolean computed item"),
         }
+    }
+
+    #[test]
+    fn unit_definition_evaluates_to_a_typed_unit() {
+        let definition = UnitDefinition::new("Length", units::UnitFamilyId::Length);
+        let functions = FunctionDefinitions::new();
+        let computed_data = BTreeMap::new();
+
+        let bare_unit = BasicInputData::new(
+            BasicDefinition::Unit(definition.clone()),
+            "u_length_meter".into(),
+        );
+        assert_eq!(
+            evaluate_basic_expression(&computed_data, &functions, &bare_unit),
+            Ok(ComputedItem::Unit(UnitId::Length_Meter))
+        );
+
+        let quoted_unit = BasicInputData::new(
+            BasicDefinition::Unit(definition),
+            "\"u_length_foot\"".into(),
+        );
+        assert_eq!(
+            evaluate_basic_expression(&computed_data, &functions, &quoted_unit),
+            Ok(ComputedItem::Unit(UnitId::Length_Foot))
+        );
+    }
+
+    #[test]
+    fn unit_definition_rejects_a_unit_from_another_family() {
+        let definition = UnitDefinition::new("Length", units::UnitFamilyId::Length);
+        let source = ShareableString::from("selected_unit");
+
+        let result = validate_unit_value(
+            &definition,
+            &ComputedItem::Unit(UnitId::Time_Second),
+            &source,
+            Span::new(0, source.as_str().chars().count()),
+        );
+
+        assert!(result.is_err());
     }
 
     #[test]

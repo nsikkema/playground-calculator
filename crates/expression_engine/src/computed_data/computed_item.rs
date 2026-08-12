@@ -172,6 +172,8 @@ pub enum ComputedItem {
     Table(ComputedTable),
     /// A table represented as a `ComputedTableWithUnits`.
     TableWithUnits(ComputedTableWithUnits),
+    /// A unit identifier.
+    Unit(UnitId),
 }
 
 impl fmt::Display for ComputedItem {
@@ -184,6 +186,7 @@ impl fmt::Display for ComputedItem {
             | ComputedItem::File(value)
             | ComputedItem::Identifier(value) => write!(f, "{value}"),
             ComputedItem::Table(_) | ComputedItem::TableWithUnits(_) => write!(f, "{self:?}"),
+            ComputedItem::Unit(value) => write!(f, "{value:?}"),
         }
     }
 }
