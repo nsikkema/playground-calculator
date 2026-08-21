@@ -1,4 +1,4 @@
-use crate::{ComputedItem, ExpressionError};
+use crate::{ComputedItem, Message};
 use keys::store_key::StoreKey;
 use shareable_string::ShareableString;
 use std::collections::BTreeMap;
@@ -6,8 +6,7 @@ use std::sync::Arc;
 
 /// The callable body of a [`FunctionDefinition`], stored behind an `Arc` so that
 /// definitions can be cheaply cloned (the owning `ExpressionEngine` is itself `Clone`).
-type FunctionBody =
-    Arc<dyn Fn(&[ComputedItem]) -> Result<ComputedItem, ExpressionError> + Send + Sync>;
+type FunctionBody = Arc<dyn Fn(&[ComputedItem]) -> Result<ComputedItem, Message> + Send + Sync>;
 
 /// Represents the number of arguments a function expects.
 #[derive(Debug, Clone, PartialEq)]
@@ -61,7 +60,7 @@ impl FunctionDefinition {
         function: F,
     ) -> Self
     where
-        F: Fn(&[ComputedItem]) -> Result<ComputedItem, ExpressionError> + Send + Sync + 'static,
+        F: Fn(&[ComputedItem]) -> Result<ComputedItem, Message> + Send + Sync + 'static,
     {
         Self {
             name: name.into().into(),
@@ -91,7 +90,7 @@ impl FunctionDefinition {
 
     /// Invokes the function with the provided pre-evaluated arguments.
     #[hotpath::measure]
-    pub(crate) fn call(&self, arguments: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
+    pub(crate) fn call(&self, arguments: &[ComputedItem]) -> Result<ComputedItem, Message> {
         (self.function)(arguments)
     }
 }
@@ -181,16 +180,17 @@ mod tests {
     use datastore::prelude::*;
     use std::ops::AddAssign;
 
-    fn add(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
+    fn add(args: &[ComputedItem]) -> Result<ComputedItem, Message> {
         let mut sum = 0.0;
         for arg in args {
             match arg {
                 ComputedItem::Float(v) => sum.add_assign(v),
                 ComputedItem::Integer(v) => sum.add_assign(*v as f64),
                 _ => {
-                    return Err(ExpressionError::new(
+                    return Err(crate::expression_message!(
                         crate::ExpressionCategory::Evaluation,
-                        "add expects numeric arguments".to_string(),
+                        "expression_engine_evaluation_add_requires_numeric_arguments",
+                        [],
                     ));
                 }
             }

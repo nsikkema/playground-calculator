@@ -47,8 +47,7 @@ impl Component {
         engine: &ExpressionEngine,
         parent_parameters: &ParameterObjectComputedData,
         parent_variables: &VariableObjectComputedData,
-    ) -> Result<(ParameterObjectComputedData, VariableObjectComputedData), Vec<ExpressionError>>
-    {
+    ) -> Result<(ParameterObjectComputedData, VariableObjectComputedData), Vec<Message>> {
         let parameters = engine.evaluate_child_parameters(
             parent_parameters,
             parent_variables,
@@ -109,7 +108,7 @@ struct EvaluatedComponent {
 #[derive(Debug)]
 struct EvaluationFailure {
     path: Vec<ShareableString>,
-    errors: Vec<ExpressionError>,
+    errors: Vec<Message>,
 }
 
 #[derive(Debug)]
@@ -341,7 +340,7 @@ fn main() -> ExitCode {
     let mut engine = ExpressionEngine::new();
     if let Err(errors) = engine.evaluate_globals(&extended_globals) {
         for error in errors {
-            eprintln!("{MODEL_NAME}: {error}");
+            eprintln!("{MODEL_NAME}: {error:?}");
         }
         return ExitCode::FAILURE;
     }
@@ -367,7 +366,7 @@ fn main() -> ExitCode {
                 .collect::<Vec<_>>()
                 .join(" > ");
             for error in failure.errors {
-                eprintln!("{path}: {error}");
+                eprintln!("{path}: {error:?}");
             }
             ExitCode::FAILURE
         }

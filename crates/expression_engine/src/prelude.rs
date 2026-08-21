@@ -7,7 +7,7 @@
 //! ```
 
 // Errors
-pub use crate::{ExpressionCategory, ExpressionError};
+pub use crate::{ExpressionCategory, Message};
 
 // Definitions
 pub use crate::BasicDefinition;

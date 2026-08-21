@@ -2,6 +2,15 @@ use datastore::prelude::*;
 use expression_engine::prelude::*;
 use shareable_string::ShareableString;
 
+fn message_text(message: &Message) -> &str {
+    message
+        .translate_data()
+        .message_params()
+        .get("message")
+        .expect("expression messages include their text")
+        .as_str()
+}
+
 #[test]
 fn no_missing_requirements_when_everything_is_present() {
     // Why: Test that no missing requirements are reported when all referenced globals, parameters, and functions are provided.
@@ -50,10 +59,8 @@ fn reports_missing_global() {
 
     assert_eq!(errors.len(), 1);
     assert!(
-        errors[0]
-            .to_string()
-            .contains("Missing required global: g_missing"),
-        "unexpected error message: {}",
+        message_text(&errors[0]).contains("Missing required global: g_missing"),
+        "unexpected error message: {:?}",
         errors[0]
     );
 }
@@ -70,10 +77,8 @@ fn reports_missing_parameter_when_none_supplied() {
 
     assert_eq!(errors.len(), 1);
     assert!(
-        errors[0]
-            .to_string()
-            .contains("Missing required parameter: p_missing"),
-        "unexpected error message: {}",
+        message_text(&errors[0]).contains("Missing required parameter: p_missing"),
+        "unexpected error message: {:?}",
         errors[0]
     );
 }
@@ -90,10 +95,8 @@ fn reports_missing_variable_when_none_supplied() {
 
     assert_eq!(errors.len(), 1);
     assert!(
-        errors[0]
-            .to_string()
-            .contains("Missing required variable: v_missing"),
-        "unexpected error message: {}",
+        message_text(&errors[0]).contains("Missing required variable: v_missing"),
+        "unexpected error message: {:?}",
         errors[0]
     );
 }
@@ -110,10 +113,8 @@ fn reports_missing_function() {
 
     assert_eq!(errors.len(), 1);
     assert!(
-        errors[0]
-            .to_string()
-            .contains("Missing required function: not_a_real_function"),
-        "unexpected error message: {}",
+        message_text(&errors[0]).contains("Missing required function: not_a_real_function"),
+        "unexpected error message: {:?}",
         errors[0]
     );
 }
@@ -129,7 +130,7 @@ fn reports_all_missing_requirement_kinds_at_once() {
         .check_missing_requirements(&None, &None, &None, &expression)
         .expect_err("all missing requirement kinds should be reported");
 
-    let messages: Vec<String> = errors.iter().map(ToString::to_string).collect();
+    let messages: Vec<String> = errors.iter().map(message_text).collect();
     assert!(
         messages
             .iter()

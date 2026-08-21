@@ -1,18 +1,34 @@
 use datastore::prelude::*;
 use expression_engine::prelude::*;
+use message::message::{Message, MessageCategory, MessageLevel};
+use message::path::Path;
+use shareable_string::TranslateMessage;
 use std::ops::{Mul, Sub};
 
+fn evaluation_message(actual: impl Into<ShareableString>) -> Message {
+    Message::new(
+        Path::new("expression_engine"),
+        None,
+        MessageLevel::Error,
+        MessageCategory::ExpressionEvaluation,
+        TranslateMessage::new(
+            "expression_engine_evaluation_custom_function_failed".into(),
+            [("actual".into(), actual.into())].into_iter().collect(),
+        ),
+        None,
+    )
+}
+
 /// A function that sums its integer arguments.
-fn add_integers(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
+fn add_integers(args: &[ComputedItem]) -> Result<ComputedItem, Message> {
     let mut total: i64 = 0;
     for arg in args {
         match arg {
             ComputedItem::Integer(value) => total += value,
             other => {
-                return Err(ExpressionError::new(
-                    ExpressionCategory::Evaluation,
-                    format!("add() expects integer arguments, got {other:?}"),
-                ));
+                return Err(evaluation_message(format!(
+                    "add() expects integer arguments, got {other:?}"
+                )));
             }
         }
     }
@@ -20,12 +36,11 @@ fn add_integers(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> 
 }
 
 /// A function that multiplies two float arguments.
-fn multiply_floats(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
+fn multiply_floats(args: &[ComputedItem]) -> Result<ComputedItem, Message> {
     match args {
         [ComputedItem::Float(a), ComputedItem::Float(b)] => Ok(ComputedItem::Float(a.mul(b))),
-        _ => Err(ExpressionError::new(
-            ExpressionCategory::Evaluation,
-            "multiply() expects exactly two float arguments".to_string(),
+        _ => Err(evaluation_message(
+            "multiply() expects exactly two float arguments",
         )),
     }
 }
@@ -237,7 +252,13 @@ fn calling_an_unregistered_function_returns_an_error() {
     let message = error
         .first()
         .expect("at least one error should be reported")
-        .to_string();
-    assert!(message.contains("[Evaluation]"));
-    assert!(message.contains("Function 'missing' is not defined."));
+        .translate_data()
+        .message_params()
+        .get("function")
+        .expect("undefined-function messages include the function name");
+    assert!(
+        message
+            .as_str()
+            .contains("Function 'missing' is not defined.")
+    );
 }

@@ -28,7 +28,7 @@ fn main() -> ExitCode {
         }
         Err(errors) => {
             for error in errors {
-                eprintln!("{error}");
+                eprintln!("{error:?}");
             }
             ExitCode::FAILURE
         }

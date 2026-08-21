@@ -21,3 +21,5 @@ pub(crate) mod globals_default;
 /// and manage these requirements, ensuring that the expression can be evaluated correctly
 /// within the context of the expression engine.
 pub(crate) mod requirements;
+/// The `translations` module provides functionality for translating expressions into different languages.
+pub mod translations;

@@ -5,7 +5,7 @@ use crate::evaluation::expression::globals_default::default_globals;
 use crate::expression::ast::ast_helper::string_to_expression;
 use crate::expression::requirements::MissingRequirements;
 use crate::{
-    ExpressionError, GlobalObjectComputedData, GlobalObjectInputData, ParameterObjectComputedData,
+    GlobalObjectComputedData, GlobalObjectInputData, Message, ParameterObjectComputedData,
     ParameterObjectInputData, VariableObjectComputedData, VariableObjectInputData,
 };
 use shareable_string::ShareableString;
@@ -49,11 +49,12 @@ impl ExpressionEngine {
     ///
     /// Returns an error if `func`'s name is empty or only whitespace.
     #[hotpath::measure]
-    pub fn register_function(&mut self, func: FunctionDefinition) -> Result<(), ExpressionError> {
+    pub fn register_function(&mut self, func: FunctionDefinition) -> Result<(), Message> {
         if func.name().as_str().trim().is_empty() {
-            return Err(ExpressionError::new(
+            return Err(crate::expression_message!(
                 crate::ExpressionCategory::Evaluation,
-                "Function name must not be empty.".to_string(),
+                "expression_engine_evaluation_function_name_empty",
+                [],
             ));
         }
 
@@ -70,7 +71,7 @@ impl ExpressionEngine {
     pub fn evaluate_globals(
         &mut self,
         globals: &GlobalObjectInputData,
-    ) -> Result<(), Vec<ExpressionError>> {
+    ) -> Result<(), Vec<Message>> {
         let (computed_data, errors) =
             evaluator(default_globals().data(), &self.functions, globals.data());
 
@@ -94,7 +95,7 @@ impl ExpressionEngine {
     pub fn evaluate_parameters(
         &self,
         parameters: &ParameterObjectInputData,
-    ) -> Result<ParameterObjectComputedData, Vec<ExpressionError>> {
+    ) -> Result<ParameterObjectComputedData, Vec<Message>> {
         let (computed_data, errors) =
             evaluator(self.globals.data(), &self.functions, parameters.data());
 
@@ -115,7 +116,7 @@ impl ExpressionEngine {
         &self,
         parameters: &ParameterObjectComputedData,
         variables: &VariableObjectInputData,
-    ) -> Result<VariableObjectComputedData, Vec<ExpressionError>> {
+    ) -> Result<VariableObjectComputedData, Vec<Message>> {
         let mut data = self.globals.data().clone();
         data.extend(parameters.data().clone());
 
@@ -140,7 +141,7 @@ impl ExpressionEngine {
         parameters: &ParameterObjectComputedData,
         variables: &VariableObjectComputedData,
         globals: &GlobalObjectInputData,
-    ) -> Result<(), Vec<ExpressionError>> {
+    ) -> Result<(), Vec<Message>> {
         let mut data = self.globals.data().clone();
         data.extend(parameters.data().clone());
         data.extend(variables.data().clone());
@@ -168,7 +169,7 @@ impl ExpressionEngine {
         parameters: &ParameterObjectComputedData,
         variables: &VariableObjectComputedData,
         child_parameters: &ParameterObjectInputData,
-    ) -> Result<ParameterObjectComputedData, Vec<ExpressionError>> {
+    ) -> Result<ParameterObjectComputedData, Vec<Message>> {
         let mut data = self.globals.data().clone();
         data.extend(parameters.data().clone());
         data.extend(variables.data().clone());
@@ -195,7 +196,7 @@ impl ExpressionEngine {
         variables: &Option<VariableObjectInputData>,
         new_globals: &Option<GlobalObjectInputData>,
         expression: &ShareableString,
-    ) -> Result<(), Vec<ExpressionError>> {
+    ) -> Result<(), Vec<Message>> {
         let mut item_keys: HashSet<ShareableString> = self.globals.data().keys().cloned().collect();
 
         if let Some(parameters) = parameters {
@@ -223,36 +224,40 @@ impl ExpressionEngine {
 
         if missing_requirements.missing_globals() {
             for global in missing_requirements.globals() {
-                errors.push(ExpressionError::new(
+                errors.push(crate::expression_message!(
                     crate::ExpressionCategory::Evaluation,
-                    format!("Missing required global: {global}"),
+                    "expression_engine_evaluation_missing_required_global",
+                    [("global", global)],
                 ));
             }
         }
 
         if missing_requirements.missing_parameters() {
             for parameter in missing_requirements.parameters() {
-                errors.push(ExpressionError::new(
+                errors.push(crate::expression_message!(
                     crate::ExpressionCategory::Evaluation,
-                    format!("Missing required parameter: {parameter}"),
+                    "expression_engine_evaluation_missing_required_parameter",
+                    [("parameter", parameter)],
                 ));
             }
         }
 
         if missing_requirements.missing_variables() {
             for variable in missing_requirements.variables() {
-                errors.push(ExpressionError::new(
+                errors.push(crate::expression_message!(
                     crate::ExpressionCategory::Evaluation,
-                    format!("Missing required variable: {variable}"),
+                    "expression_engine_evaluation_missing_required_variable",
+                    [("variable", variable)],
                 ));
             }
         }
 
         if missing_requirements.missing_functions() {
             for function in missing_requirements.functions() {
-                errors.push(ExpressionError::new(
+                errors.push(crate::expression_message!(
                     crate::ExpressionCategory::Evaluation,
-                    format!("Missing required function: {function}"),
+                    "expression_engine_evaluation_missing_required_function",
+                    [("function", function)],
                 ));
             }
         }
