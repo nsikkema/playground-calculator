@@ -26,6 +26,7 @@ errors = { path = "crates/errors" }
 expression_engine = { path = "crates/expression_engine" }
 keys = { path = "crates/keys" }
 shareable_string = { path = "crates/shareable_string" }
+translation = { path = "crates/translation" }
 units = { path = "crates/units" }
 
 [workspace.lints.rust]
