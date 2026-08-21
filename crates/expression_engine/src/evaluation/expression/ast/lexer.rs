@@ -931,7 +931,7 @@ mod tests {
         let rendered = error.to_string();
         assert_eq!(
             rendered,
-            "[Lexer] Invalid character in expression: '@'\n1 + @ * 2\n    ~\n"
+            "[Lexer] Invalid character in expression: '@'\n1 + @ * 2\n    ~"
         );
     }
 
@@ -942,7 +942,7 @@ mod tests {
         let rendered = error.to_string();
         assert_eq!(
             rendered,
-            "[Lexer] Invalid number in expression: '1.2.3'\n1.2.3 * 2\n~~~~~\n"
+            "[Lexer] Invalid number in expression: '1.2.3'\n1.2.3 * 2\n~~~~~"
         );
     }
 }

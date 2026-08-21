@@ -1,4 +1,5 @@
 use core::fmt;
+use shareable_string::ShareableString;
 
 /// A half-open byte range `[start, start + size)` within an expression string,
 /// used to point at tokens and sub-expressions for error reporting.
@@ -136,6 +137,42 @@ impl SpanSet {
     }
 }
 
+/// Builds the underline string for the error: `~` characters under each marked
+/// span and spaces elsewhere. Returns the original string if there is no expression text or
+/// no mark falls within it.
+#[hotpath::measure]
+pub fn underline_string(source: ShareableString, marks: SpanSet) -> ShareableString {
+    let chars: Vec<char> = source.as_ref().chars().collect();
+    let len = chars.len();
+    if len == 0 || marks.is_empty() {
+        return source;
+    }
+
+    let mut line = vec![' '; len];
+    let mut any = false;
+    for mark in marks.iter() {
+        let start = mark.start().min(len);
+        let end = mark.end().min(len);
+        if start < end {
+            for i in line.iter_mut().take(end).skip(start) {
+                *i = '~';
+            }
+            any = true;
+        }
+    }
+
+    if any {
+        format!(
+            "{}\n{}",
+            source,
+            line.into_iter().collect::<String>().trim_end()
+        )
+        .into()
+    } else {
+        source
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -200,5 +237,39 @@ mod tests {
         assert_eq!(index_set.indices[0].end(), 7);
         assert_eq!(index_set.indices[1].start(), 10);
         assert_eq!(index_set.indices[1].end(), 12);
+    }
+
+    #[test]
+    fn test_underline_string_with_single_span() {
+        let result = underline_string("hello".into(), SpanSet::from_span(Span::new(1, 3)));
+
+        assert_eq!(result.as_ref(), "hello\n ~~~");
+    }
+
+    #[test]
+    fn test_underline_string_with_disjoint_spans() {
+        let marks = SpanSet::new_with_indices(vec![Span::new(0, 1), Span::new(3, 1)]);
+        let result = underline_string("hello".into(), marks);
+
+        assert_eq!(result.as_ref(), "hello\n~  ~");
+    }
+
+    #[test]
+    fn test_underline_string_returns_source_without_valid_marks() {
+        let empty_marks = underline_string("hello".into(), SpanSet::new());
+        let out_of_bounds_mark =
+            underline_string("hello".into(), SpanSet::from_span(Span::new(5, 1)));
+        let empty_source = underline_string("".into(), SpanSet::from_span(Span::new(0, 1)));
+
+        assert_eq!(empty_marks.as_ref(), "hello");
+        assert_eq!(out_of_bounds_mark.as_ref(), "hello");
+        assert_eq!(empty_source.as_ref(), "");
+    }
+
+    #[test]
+    fn test_underline_string_uses_character_positions() {
+        let result = underline_string("aéz".into(), SpanSet::from_span(Span::new(1, 1)));
+
+        assert_eq!(result.as_ref(), "aéz\n ~");
     }
 }

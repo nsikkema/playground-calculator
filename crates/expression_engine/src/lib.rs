@@ -42,7 +42,7 @@ pub mod prelude;
 pub use computed_data::*;
 pub use evaluation::*;
 pub use input_data::*;
-use message::span::SpanSet;
+use message::span::{SpanSet, underline_string};
 
 /// A definition for one of the basic (non-composite) data types supported by the
 /// expression engine.
@@ -165,55 +165,63 @@ impl ExpressionError {
             }),
         }
     }
-
-    /// Builds the underline string for the error: `~` characters under each marked
-    /// span and spaces elsewhere. Returns `None` when there is no expression text or
-    /// no mark falls within it.
-    ///
-    /// Indices are interpreted as character offsets (matching how the lexer produces
-    /// them via `input.chars().enumerate()`).
-    #[hotpath::measure]
-    fn underline(&self) -> Option<String> {
-        let chars: Vec<char> = self.context.original_expression.as_ref().chars().collect();
-        let len = chars.len();
-        if len == 0 || self.context.marks.is_empty() {
-            return None;
-        }
-
-        let mut line = vec![' '; len];
-        let mut any = false;
-        for mark in self.context.marks.iter() {
-            let start = mark.start().min(len);
-            let end = mark.end().min(len);
-            if start < end {
-                for i in line.iter_mut().take(end).skip(start) {
-                    *i = '~';
-                }
-                any = true;
-            }
-        }
-
-        if any {
-            Some(line.into_iter().collect::<String>().trim_end().to_owned())
-        } else {
-            None
-        }
-    }
 }
 
 impl fmt::Display for ExpressionError {
     #[hotpath::measure]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "[{:?}] {}\n{}",
-            self.category, self.message, self.context.original_expression
-        )?;
-        if let Some(underline) = self.underline() {
-            write!(f, "\n{underline}")?;
+        let underline_string = underline_string(
+            self.context.original_expression.clone(),
+            self.context.marks.clone(),
+        );
+
+        if underline_string.as_str().is_empty() {
+            write!(f, "[{:?}] {}", self.category, self.message)
+        } else {
+            write!(
+                f,
+                "[{:?}] {}\n{}",
+                self.category, self.message, underline_string
+            )
         }
-        writeln!(f)
     }
 }
 
 impl std::error::Error for ExpressionError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use message::span::Span;
+
+    #[test]
+    fn display_includes_underlined_expression_context() {
+        let error = ExpressionError::new_complex(
+            ExpressionCategory::Parse,
+            "unexpected token",
+            "1 + )",
+            SpanSet::from_span(Span::new(4, 1)),
+        );
+
+        assert_eq!(error.to_string(), "[Parse] unexpected token\n1 + )\n    ~");
+    }
+
+    #[test]
+    fn display_no_underlined_expression_context() {
+        let error = ExpressionError::new_complex(
+            ExpressionCategory::Parse,
+            "unexpected token",
+            "1 + )",
+            SpanSet::new(),
+        );
+
+        assert_eq!(error.to_string(), "[Parse] unexpected token\n1 + )");
+    }
+
+    #[test]
+    fn display_excludes_underlined_expression_context() {
+        let error = ExpressionError::new(ExpressionCategory::Parse, "unexpected token");
+
+        assert_eq!(error.to_string(), "[Parse] unexpected token");
+    }
+}
