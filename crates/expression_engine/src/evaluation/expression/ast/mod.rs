@@ -4,7 +4,5 @@ pub(crate) mod ast_helper;
 pub(crate) mod lexer;
 /// The `precedence_parser` implements a parser that respects operator precedence and associativity.
 pub(crate) mod parser;
-/// The `span` module provides structures and methods for managing ranges of indices, which can be used to represent spans of text or other sequential data.
-pub(crate) mod span;
 /// The 'translator' implements a conversion from the AST to a more efficient representation for evaluation, optimizing the evaluation process.
 pub(crate) mod translator;

@@ -1,6 +1,6 @@
 use crate::evaluation::expression::ast::parser::{Parser, ParserToken};
-use crate::evaluation::expression::ast::span::{Span, SpanSet};
 use crate::{ExpressionCategory, ExpressionError};
+use message::span::{Span, SpanSet};
 use shareable_string::ShareableString;
 use std::fmt;
 
@@ -484,7 +484,6 @@ mod tests {
     use super::*;
     use crate::evaluation::expression::ast::lexer::Lexer;
     use crate::evaluation::expression::ast::parser::Parser;
-    use crate::evaluation::expression::ast::span::Span;
 
     fn translate_str(s: &str) -> Result<Expression, ExpressionError> {
         let lexer = Lexer::new(s)?;

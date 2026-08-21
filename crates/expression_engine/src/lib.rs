@@ -40,9 +40,9 @@ pub mod input_data;
 pub mod prelude;
 
 pub use computed_data::*;
-use evaluation::expression::ast::span::SpanSet;
 pub use evaluation::*;
 pub use input_data::*;
+use message::span::SpanSet;
 
 /// A definition for one of the basic (non-composite) data types supported by the
 /// expression engine.

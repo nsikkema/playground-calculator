@@ -1,7 +1,6 @@
 use crate::BasicDefinition::{
     Boolean, Choice, File, Folder, Integer, Number, NumberWithUnits, String, Unit,
 };
-use crate::evaluation::expression::ast::span::{Span, SpanSet};
 use crate::evaluation::expression::ast::translator::{
     Expression, Literal, Operators, expression_span,
 };
@@ -13,6 +12,7 @@ use crate::{
     ExpressionError, ObjectItemInputData, TableInputData, TableWithUnitsInputData,
 };
 use datastore::definition::{IntegerConstraintEnum, NumberConstraintEnum};
+use message::span::{Span, SpanSet};
 use shareable_string::ShareableString;
 use std::collections::BTreeMap;
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};

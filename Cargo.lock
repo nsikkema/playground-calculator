@@ -1261,6 +1261,7 @@ dependencies = [
  "datastore",
  "hotpath",
  "keys",
+ "message",
  "shareable_string",
  "units",
 ]

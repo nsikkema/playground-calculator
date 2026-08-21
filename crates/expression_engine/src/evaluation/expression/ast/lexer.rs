@@ -1,5 +1,5 @@
-use crate::evaluation::expression::ast::span::{Span, SpanSet};
 use crate::{ExpressionCategory, ExpressionError};
+use message::span::{Span, SpanSet};
 use shareable_string::ShareableString;
 use std::iter::{Enumerate, Peekable};
 use std::str::Chars;
