@@ -25,6 +25,7 @@ datastore = { path = "crates/datastore" }
 errors = { path = "crates/errors" }
 expression_engine = { path = "crates/expression_engine" }
 keys = { path = "crates/keys" }
+message = { path = "crates/message" }
 shareable_string = { path = "crates/shareable_string" }
 translation = { path = "crates/translation" }
 units = { path = "crates/units" }

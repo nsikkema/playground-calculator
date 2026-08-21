@@ -1,0 +1,20 @@
+[package]
+name = "message"
+version.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+hotpath = ["hotpath/hotpath"]
+hotpath-alloc = ["hotpath/hotpath-alloc"]
+
+[dependencies]
+hotpath.workspace = true
+
+shareable_string.workspace = true
+
+[lints]
+workspace = true
