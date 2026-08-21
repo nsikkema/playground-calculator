@@ -16,9 +16,23 @@ pub struct SharedStringTranslationMap {
 }
 
 impl SharedStringTranslationMap {
+    /// Creates a new `SharedStringTranslationMap` with the given fallback language being "en".
+    #[hotpath::measure]
+    #[must_use]
+    pub fn new() -> Self {
+        let store = SharedStringStore::new();
+        let fallback_language = store.launder("en");
+
+        Self {
+            store,
+            fallback_language,
+            data: Arc::new(RwLock::new(HashMap::default())),
+        }
+    }
+
     /// Creates a new `SharedStringTranslationMap` with the given `SharedStringStore`.
     #[hotpath::measure]
-    pub fn new<L>(store: SharedStringStore, fallback_language: L) -> Self
+    pub fn new_with_data<L>(store: SharedStringStore, fallback_language: L) -> Self
     where
         L: Into<ShareableString> + AsRef<str>,
     {
@@ -129,6 +143,12 @@ impl SharedStringTranslationMap {
     }
 }
 
+impl Default for SharedStringTranslationMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A message that can be translated.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TranslateMessage {
@@ -151,14 +171,29 @@ impl TranslateMessage {
         }
     }
 
+    /// Returns a reference to the message key.
+    #[must_use]
+    pub const fn message_key(&self) -> &ShareableString {
+        &self.message_key
+    }
+
+    /// Returns a reference to the message parameters.
+    #[must_use]
+    pub const fn message_params(&self) -> &HashMap<ShareableString, ShareableString> {
+        &self.message_params
+    }
+
     /// Translates the message using the given translation map and language.
     #[must_use]
     #[hotpath::measure]
-    pub fn translate(
+    pub fn translate<L>(
         &self,
         translation_map: &SharedStringTranslationMap,
-        language: &str,
-    ) -> Option<ShareableString> {
+        language: L,
+    ) -> Option<ShareableString>
+    where
+        L: AsRef<str>,
+    {
         translation_map.get_translation(&self.message_key, language, Some(&self.message_params))
     }
 
@@ -184,7 +219,7 @@ mod tests {
     #[test]
     fn test_translation_map_auto_launder() {
         let store = SharedStringStore::new();
-        let map = SharedStringTranslationMap::new(store, "en");
+        let map = SharedStringTranslationMap::new_with_data(store, "en");
 
         // Create strings that are NOT in the map's store
         let key = "key";
@@ -227,8 +262,7 @@ mod tests {
 
     #[test]
     fn test_translation_with_params() {
-        let store = SharedStringStore::new();
-        let map = SharedStringTranslationMap::new(store, "en");
+        let map = SharedStringTranslationMap::new();
 
         map.set_translation("greeting", "en", "Hello, %{name}!");
 
