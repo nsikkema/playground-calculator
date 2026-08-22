@@ -1,6 +1,8 @@
-use crate::{ExpressionCategory, ExpressionError};
-use message::span::{Span, SpanSet};
-use shareable_string::ShareableString;
+use crate::evaluation::create_error_message;
+use message::message::{Message, MessageCategory, MessageLevel};
+use message::span::{Span, SpanSet, underline_string};
+use shareable_string::{ShareableString, TranslateMessage};
+use std::collections::HashMap;
 use std::iter::{Enumerate, Peekable};
 use std::str::Chars;
 
@@ -46,7 +48,7 @@ impl Lexer {
     ///
     /// Returns an error if `input` contains invalid characters or unterminated string literals.
     #[hotpath::measure]
-    pub(crate) fn new<S: Into<ShareableString>>(input: S) -> Result<Self, ExpressionError> {
+    pub(crate) fn new<S: Into<ShareableString>>(input: S) -> Result<Self, Message> {
         let input = input.into();
         let mut lexer = Self {
             tokens: Vec::new(),
@@ -69,7 +71,7 @@ impl Lexer {
     ///
     /// Returns an error if an invalid character or unterminated string literal is found.
     #[hotpath::measure]
-    fn tokenize(&mut self, input: &str) -> Result<(), ExpressionError> {
+    fn tokenize(&mut self, input: &str) -> Result<(), Message> {
         let mut chars = input.chars().enumerate().peekable();
 
         while let Some((index, c)) = chars.next() {
@@ -80,21 +82,27 @@ impl Lexer {
 
             // Check for invalid characters (non-ASCII)
             if !c.is_ascii() {
-                return Err(ExpressionError::new_complex(
-                    ExpressionCategory::Lexer,
-                    format!("Invalid character in expression: '{c}'"),
-                    input,
-                    SpanSet::from_span(Span::new(index, 1)),
+                return Err(create_error_message(
+                    MessageCategory::ExpressionParsing,
+                    "expression_engine_lexer_invalid_character".into(),
+                    vec![("character".into(), c.to_string().into())]
+                        .into_iter()
+                        .collect(),
+                    Some(input.into()),
+                    Some(SpanSet::from_span(Span::new(index, 1))),
                 ));
             }
 
             // Check for invalid tokens
             if !c.is_numeric() && !c.is_lowercase() && !"+_-*/()[]<>=!&|%^.,\"".contains(c) {
-                return Err(ExpressionError::new_complex(
-                    ExpressionCategory::Lexer,
-                    format!("Invalid character in expression: '{c}'"),
-                    input,
-                    SpanSet::from_span(Span::new(index, 1)),
+                return Err(create_error_message(
+                    MessageCategory::ExpressionParsing,
+                    "expression_engine_lexer_invalid_character".into(),
+                    vec![("character".into(), c.to_string().into())]
+                        .into_iter()
+                        .collect(),
+                    Some(input.into()),
+                    Some(SpanSet::from_span(Span::new(index, 1))),
                 ));
             }
 
@@ -137,7 +145,7 @@ impl Lexer {
         chars: &mut Peekable<Enumerate<Chars<'_>>>,
         start: usize,
         input: &str,
-    ) -> Result<(), ExpressionError> {
+    ) -> Result<(), Message> {
         let mut s = String::new();
         let mut closed = false;
 
@@ -149,11 +157,14 @@ impl Lexer {
             }
 
             if !Self::is_valid_string_char(c) {
-                return Err(ExpressionError::new_complex(
-                    ExpressionCategory::Lexer,
-                    format!("Invalid character in string literal: '{c}'"),
-                    input,
-                    SpanSet::from_span(Span::new(idx, 1)),
+                return Err(create_error_message(
+                    MessageCategory::ExpressionParsing,
+                    "expression_engine_lexer_invalid_character".into(),
+                    vec![("character".into(), c.to_string().into())]
+                        .into_iter()
+                        .collect(),
+                    Some(input.into()),
+                    Some(SpanSet::from_span(Span::new(idx, 1))),
                 ));
             }
 
@@ -162,11 +173,15 @@ impl Lexer {
         }
 
         if !closed {
-            return Err(ExpressionError::new_complex(
-                ExpressionCategory::Lexer,
-                "Unterminated string literal".to_string(),
-                input,
-                SpanSet::from_span(Span::new(start, s.len().saturating_add(1))),
+            return Err(create_error_message(
+                MessageCategory::ExpressionParsing,
+                "expression_engine_lexer_unterminated_string_literal".into(),
+                HashMap::new(),
+                Some(input.into()),
+                Some(SpanSet::from_span(Span::new(
+                    start,
+                    s.len().saturating_add(1),
+                ))),
             ));
         }
 
@@ -311,16 +326,17 @@ impl Lexer {
     /// This includes cases where an identifier starts with `_`, a number has multiple decimal points,
     /// or a standalone operator is malformed (e.g., `&`, `|`, `=`, or `.`).
     #[hotpath::measure]
-    fn validate_tokens(&self, input: &str) -> Result<(), ExpressionError> {
+    fn validate_tokens(&self, input: &str) -> Result<(), Message> {
         for token in &self.tokens {
             match token {
                 LexerToken::Identifier(index, s) => {
                     if s.starts_with('_') {
-                        return Err(ExpressionError::new_complex(
-                            ExpressionCategory::Lexer,
-                            format!("Invalid string in expression: '{s}'"),
-                            input,
-                            SpanSet::from_span(Span::new(index.start(), s.len())),
+                        return Err(create_error_message(
+                            MessageCategory::ExpressionParsing,
+                            "expression_engine_lexer_invalid_string".into(),
+                            vec![("string".into(), s.into())].into_iter().collect(),
+                            Some(input.into()),
+                            Some(SpanSet::from_span(Span::new(index.start(), s.len()))),
                         ));
                     }
                 }
@@ -328,21 +344,23 @@ impl Lexer {
                     if s.starts_with(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
                         && s.matches('.').count() > 1
                     {
-                        return Err(ExpressionError::new_complex(
-                            ExpressionCategory::Lexer,
-                            format!("Invalid number in expression: '{s}'"),
-                            input,
-                            SpanSet::from_span(Span::new(index.start(), s.len())),
+                        return Err(create_error_message(
+                            MessageCategory::ExpressionParsing,
+                            "expression_engine_lexer_invalid_number".into(),
+                            vec![("number".into(), s.into())].into_iter().collect(),
+                            Some(input.into()),
+                            Some(SpanSet::from_span(Span::new(index.start(), s.len()))),
                         ));
                     }
                 }
                 LexerToken::Operator(index, s) => {
                     if s == "&" || s == "|" || s == "=" || s == "." {
-                        return Err(ExpressionError::new_complex(
-                            ExpressionCategory::Lexer,
-                            format!("Invalid operator in expression: '{s}'"),
-                            input,
-                            SpanSet::from_span(Span::new(index.start(), s.len())),
+                        return Err(create_error_message(
+                            MessageCategory::ExpressionParsing,
+                            "expression_engine_lexer_invalid_operator".into(),
+                            vec![("operator".into(), s.into())].into_iter().collect(),
+                            Some(input.into()),
+                            Some(SpanSet::from_span(Span::new(index.start(), s.len()))),
                         ));
                     }
                 }
@@ -786,11 +804,18 @@ mod tests {
                 let result = Lexer::new(&input);
                 assert!(result.is_err());
                 let error = result.err().unwrap();
-                assert_eq!(error.category, ExpressionCategory::Lexer);
+                assert_eq!(error.category(), MessageCategory::ExpressionParsing);
+                let translate_data = error.translate_data();
                 assert_eq!(
-                    error.message,
-                    format!("Invalid character in expression: '{ch}'")
+                    translate_data.message_key(),
+                    "expression_engine_lexer_invalid_character"
                 );
+                let character = translate_data.message_params().get("character");
+                if let Some(character) = character {
+                    assert_eq!(character.as_str(), ch.to_string());
+                } else {
+                    panic!("Expected 'character' parameter in error message");
+                }
             }
         }
     }
@@ -801,11 +826,23 @@ mod tests {
         let result = Lexer::new(input);
         assert!(result.is_err());
         let error = result.err().unwrap();
-        assert_eq!(error.category, ExpressionCategory::Lexer);
+        assert_eq!(error.category(), MessageCategory::ExpressionParsing);
         assert_eq!(
-            error.message,
-            format!("Invalid character in expression: '{}'", '\u{1F600}')
+            error.translate_data().message_key(),
+            "expression_engine_lexer_invalid_character"
         );
+        assert_eq!(error.category(), MessageCategory::ExpressionParsing);
+        let translate_data = error.translate_data();
+        assert_eq!(
+            translate_data.message_key(),
+            "expression_engine_lexer_invalid_character"
+        );
+        let character = translate_data.message_params().get("character");
+        if let Some(character) = character {
+            assert_eq!(character, "\u{1F600}");
+        } else {
+            panic!("Expected 'character' parameter in error message");
+        }
     }
 
     #[test]
@@ -814,8 +851,18 @@ mod tests {
         let result = Lexer::new(input);
         assert!(result.is_err());
         let error = result.err().unwrap();
-        assert_eq!(error.category, ExpressionCategory::Lexer);
-        assert_eq!(error.message, "Invalid number in expression: '5..0'");
+        assert_eq!(error.category(), MessageCategory::ExpressionParsing);
+        let translate_data = error.translate_data();
+        assert_eq!(
+            translate_data.message_key(),
+            "expression_engine_lexer_invalid_number"
+        );
+        let number = translate_data.message_params().get("number");
+        if let Some(number) = number {
+            assert_eq!(number.as_str(), "5..0");
+        } else {
+            panic!("Expected 'number' parameter in error message");
+        }
     }
 
     #[test]
@@ -826,10 +873,19 @@ mod tests {
             let result = Lexer::new(&input);
             assert!(result.is_err());
             let error = result.err().unwrap();
-            assert_eq!(error.category, ExpressionCategory::Lexer);
+            assert_eq!(error.category(), MessageCategory::ExpressionParsing);
             assert_eq!(
-                error.message,
-                format!("Invalid operator in expression: '{ch}'")
+                error.translate_data().message_key(),
+                "expression_engine_lexer_invalid_operator"
+            );
+            assert_eq!(
+                error
+                    .translate_data()
+                    .message_params()
+                    .get("operator")
+                    .unwrap()
+                    .as_str(),
+                ch.to_string()
             );
         }
     }
@@ -842,10 +898,19 @@ mod tests {
             let result = Lexer::new(&input);
             assert!(result.is_err());
             let error = result.err().unwrap();
-            assert_eq!(error.category, ExpressionCategory::Lexer);
+            assert_eq!(error.category(), MessageCategory::ExpressionParsing);
             assert_eq!(
-                error.message,
-                format!("Invalid string in expression: '{ch}'")
+                error.translate_data().message_key(),
+                "expression_engine_lexer_invalid_string"
+            );
+            assert_eq!(
+                error
+                    .translate_data()
+                    .message_params()
+                    .get("string")
+                    .unwrap()
+                    .as_str(),
+                ch.to_string()
             );
         }
     }
@@ -907,8 +972,11 @@ mod tests {
         let result = Lexer::new(input);
         assert!(result.is_err());
         let error = result.err().unwrap();
-        assert_eq!(error.category, ExpressionCategory::Lexer);
-        assert_eq!(error.message, "Unterminated string literal");
+        assert_eq!(error.category(), MessageCategory::ExpressionParsing);
+        assert_eq!(
+            error.translate_data().message_key(),
+            "expression_engine_lexer_unterminated_string_literal"
+        );
     }
 
     #[test]
@@ -917,32 +985,31 @@ mod tests {
         let result = Lexer::new(input);
         assert!(result.is_err());
         let error = result.err().unwrap();
-        assert_eq!(error.category, ExpressionCategory::Lexer);
+        assert_eq!(error.category(), MessageCategory::ExpressionParsing);
         assert_eq!(
-            error.message,
-            format!("Invalid character in string literal: '{}'", '\u{e9}')
+            error.translate_data().message_key(),
+            "expression_engine_lexer_invalid_character"
+        );
+        assert_eq!(
+            error
+                .translate_data()
+                .message_params()
+                .get("character")
+                .unwrap()
+                .as_str(),
+            "\u{e9}"
         );
     }
 
     #[test]
-    fn display_renders_underline_beneath_marked_span() {
-        // A single invalid character produces a single `~` at its position.
+    fn includes_underline_beneath_marked_span() {
         let error = Lexer::new("1 + @ * 2").unwrap_err();
-        let rendered = error.to_string();
-        assert_eq!(
-            rendered,
-            "[Lexer] Invalid character in expression: '@'\n1 + @ * 2\n    ~"
-        );
+        assert_eq!(error.extra_detail().unwrap().as_str(), "1 + @ * 2\n    ~");
     }
 
     #[test]
-    fn display_renders_underline_across_a_multi_char_span() {
-        // An invalid number spans the whole token, so the underline covers it.
+    fn includes_underline_across_a_multi_char_span() {
         let error = Lexer::new("1.2.3 * 2").unwrap_err();
-        let rendered = error.to_string();
-        assert_eq!(
-            rendered,
-            "[Lexer] Invalid number in expression: '1.2.3'\n1.2.3 * 2\n~~~~~"
-        );
+        assert_eq!(error.extra_detail().unwrap().as_str(), "1.2.3 * 2\n~~~~~");
     }
 }

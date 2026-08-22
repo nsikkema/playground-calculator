@@ -9,22 +9,23 @@ use crate::expression::ast::ast_helper::string_to_expression;
 use crate::input_data::input_basic_with_units::BasicInputWithUnitsData;
 use crate::{
     BasicInputData, ComputedItem, ComputedTable, ComputedTableWithUnits, ExpressionCategory,
-    ExpressionError, ObjectItemInputData, TableInputData, TableWithUnitsInputData,
+     ObjectItemInputData, TableInputData, TableWithUnitsInputData,
 };
 use datastore::definition::{IntegerConstraintEnum, NumberConstraintEnum};
 use message::span::{Span, SpanSet};
 use shareable_string::ShareableString;
 use std::collections::BTreeMap;
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
+use message::message::Message;
 use units::{UnitId, conversion::convert};
 
 /// Rejects floating-point values that cannot be safely represented in computed output.
 #[hotpath::measure]
-fn finite_float(value: f64, source: &ShareableString, span: Span) -> Result<f64, ExpressionError> {
+fn finite_float(value: f64, source: &ShareableString, span: Span) -> Result<f64, Message> {
     if value.is_finite() {
         Ok(value)
     } else {
-        Err(ExpressionError::new_complex(
+        Err(Message::new_complex(
             ExpressionCategory::Evaluation,
             "Floating-point results must be finite.".to_string(),
             source.clone(),
@@ -39,7 +40,7 @@ fn ensure_finite_computed_item(
     item: ComputedItem,
     source: &ShareableString,
     span: Span,
-) -> Result<ComputedItem, ExpressionError> {
+) -> Result<ComputedItem, Message> {
     match &item {
         ComputedItem::Float(value) | ComputedItem::FloatWithUnit { value, .. } => {
             finite_float(*value, source, span)?;
@@ -76,11 +77,11 @@ fn lookup_variable(
     variable_name: &str,
     source: &ShareableString,
     span: Span,
-) -> Result<ComputedItem, ExpressionError> {
+) -> Result<ComputedItem, Message> {
     let key = ShareableString::from(variable_name);
     match computed_data.get(&key) {
         Some(computed_item) => ensure_finite_computed_item(computed_item.clone(), source, span),
-        None => Err(ExpressionError::new_complex(
+        None => Err(Message::new_complex(
             ExpressionCategory::Evaluation,
             format!(
                 "Variable '{variable_name}' not found in computed data. \
@@ -127,7 +128,7 @@ fn evaluate_unary_operation(
     operand_value: ComputedItem,
     source: &ShareableString,
     span: Span,
-) -> Result<ComputedItem, ExpressionError> {
+) -> Result<ComputedItem, Message> {
     match (operator, operand_value) {
         (
             Operators::Negate,
@@ -139,7 +140,7 @@ fn evaluate_unary_operation(
         )?)),
         (Operators::Negate, ComputedItem::Integer(value)) => Ok(ComputedItem::Integer(
             value.checked_mul(-1).ok_or_else(|| {
-                ExpressionError::new_complex(
+                Message::new_complex(
                     ExpressionCategory::Evaluation,
                     "Integer overflow.".to_string(),
                     source.clone(),
@@ -148,7 +149,7 @@ fn evaluate_unary_operation(
             })?,
         )),
         (Operators::Not, ComputedItem::Boolean(value)) => Ok(ComputedItem::Boolean(!value)),
-        _ => Err(ExpressionError::new_complex(
+        _ => Err(Message::new_complex(
             ExpressionCategory::Evaluation,
             "Invalid unary operation.".to_string(),
             source.clone(),
@@ -165,7 +166,7 @@ fn evaluate_boolean_binary_operation(
     right_value: bool,
     source: &ShareableString,
     span: Span,
-) -> Result<ComputedItem, ExpressionError> {
+) -> Result<ComputedItem, Message> {
     match operator {
         Operators::And => Ok(ComputedItem::Boolean(left_value && right_value)),
         Operators::Or => Ok(ComputedItem::Boolean(left_value || right_value)),
@@ -182,7 +183,7 @@ fn evaluate_boolean_binary_operation(
         | Operators::LessThanOrEqual
         | Operators::GreaterThan
         | Operators::GreaterThanOrEqual
-        | Operators::Not => Err(ExpressionError::new_complex(
+        | Operators::Not => Err(Message::new_complex(
             ExpressionCategory::Evaluation,
             format!("Unsupported operator for booleans: {operator:?}"),
             source.clone(),
@@ -199,7 +200,7 @@ fn evaluate_float_binary_operation(
     right_value: f64,
     source: &ShareableString,
     span: Span,
-) -> Result<ComputedItem, ExpressionError> {
+) -> Result<ComputedItem, Message> {
     match operator {
         Operators::Add => Ok(ComputedItem::Float(finite_float(
             left_value.add(right_value),
@@ -218,7 +219,7 @@ fn evaluate_float_binary_operation(
         )?)),
         Operators::Divide => {
             if right_value == 0.0 {
-                Err(ExpressionError::new_complex(
+                Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     "Division by zero.".to_string(),
                     source.clone(),
@@ -234,7 +235,7 @@ fn evaluate_float_binary_operation(
         }
         Operators::Modulus => {
             if right_value == 0.0 {
-                Err(ExpressionError::new_complex(
+                Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     "Modulus by zero.".to_string(),
                     source.clone(),
@@ -262,7 +263,7 @@ fn evaluate_float_binary_operation(
         | Operators::NotEqual
         | Operators::And
         | Operators::Or
-        | Operators::Not => Err(ExpressionError::new_complex(
+        | Operators::Not => Err(Message::new_complex(
             ExpressionCategory::Evaluation,
             format!("Unsupported operator for floats: {operator:?}"),
             source.clone(),
@@ -279,13 +280,13 @@ fn evaluate_integer_binary_operation(
     right_value: i64,
     source: &ShareableString,
     span: Span,
-) -> Result<ComputedItem, ExpressionError> {
+) -> Result<ComputedItem, Message> {
     match operator {
         Operators::Add => {
             let checked_add = left_value.checked_add(right_value);
             match checked_add {
                 Some(result) => Ok(ComputedItem::Integer(result)),
-                None => Err(ExpressionError::new_complex(
+                None => Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     "Integer overflow.".to_string(),
                     source.clone(),
@@ -297,7 +298,7 @@ fn evaluate_integer_binary_operation(
             let checked_sub = left_value.checked_sub(right_value);
             match checked_sub {
                 Some(result) => Ok(ComputedItem::Integer(result)),
-                None => Err(ExpressionError::new_complex(
+                None => Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     "Integer overflow.".to_string(),
                     source.clone(),
@@ -309,7 +310,7 @@ fn evaluate_integer_binary_operation(
             let checked_mul = left_value.checked_mul(right_value);
             match checked_mul {
                 Some(result) => Ok(ComputedItem::Integer(result)),
-                None => Err(ExpressionError::new_complex(
+                None => Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     "Integer overflow.".to_string(),
                     source.clone(),
@@ -324,14 +325,14 @@ fn evaluate_integer_binary_operation(
                 Some(result) => Ok(ComputedItem::Integer(result)),
                 None => {
                     if right_value == 0 {
-                        Err(ExpressionError::new_complex(
+                        Err(Message::new_complex(
                             ExpressionCategory::Evaluation,
                             "Division by zero.".to_string(),
                             source.clone(),
                             SpanSet::from_span(span),
                         ))
                     } else {
-                        Err(ExpressionError::new_complex(
+                        Err(Message::new_complex(
                             ExpressionCategory::Evaluation,
                             "Integer overflow.".to_string(),
                             source.clone(),
@@ -347,14 +348,14 @@ fn evaluate_integer_binary_operation(
                 Some(result) => Ok(ComputedItem::Integer(result)),
                 None => {
                     if right_value == 0 {
-                        Err(ExpressionError::new_complex(
+                        Err(Message::new_complex(
                             ExpressionCategory::Evaluation,
                             "Modulus by zero.".to_string(),
                             source.clone(),
                             SpanSet::from_span(span),
                         ))
                     } else {
-                        Err(ExpressionError::new_complex(
+                        Err(Message::new_complex(
                             ExpressionCategory::Evaluation,
                             "Integer overflow.".to_string(),
                             source.clone(),
@@ -366,7 +367,7 @@ fn evaluate_integer_binary_operation(
         }
         Operators::Power => {
             let exponent = u32::try_from(right_value).map_err(|_| {
-                ExpressionError::new_complex(
+                Message::new_complex(
                     ExpressionCategory::Evaluation,
                     "Integer exponent must be non-negative and fit within `u32`.".to_string(),
                     source.clone(),
@@ -375,7 +376,7 @@ fn evaluate_integer_binary_operation(
             })?;
             left_value.checked_pow(exponent).map_or_else(
                 || {
-                    Err(ExpressionError::new_complex(
+                    Err(Message::new_complex(
                         ExpressionCategory::Evaluation,
                         "Integer overflow.".to_string(),
                         source.clone(),
@@ -392,7 +393,7 @@ fn evaluate_integer_binary_operation(
         Operators::GreaterThan => Ok(ComputedItem::Boolean(left_value > right_value)),
         Operators::GreaterThanOrEqual => Ok(ComputedItem::Boolean(left_value >= right_value)),
         Operators::Negate | Operators::Not | Operators::And | Operators::Or => {
-            Err(ExpressionError::new_complex(
+            Err(Message::new_complex(
                 ExpressionCategory::Evaluation,
                 format!("Unsupported operator for integers: {operator:?}"),
                 source.clone(),
@@ -410,7 +411,7 @@ fn evaluate_string_binary_operation(
     right_value: &ShareableString,
     source: &ShareableString,
     span: Span,
-) -> Result<ComputedItem, ExpressionError> {
+) -> Result<ComputedItem, Message> {
     match operator {
         Operators::Equal => Ok(ComputedItem::Boolean(left_value == right_value)),
         Operators::NotEqual => Ok(ComputedItem::Boolean(left_value != right_value)),
@@ -427,7 +428,7 @@ fn evaluate_string_binary_operation(
         | Operators::Multiply
         | Operators::Divide
         | Operators::Modulus
-        | Operators::Power => Err(ExpressionError::new_complex(
+        | Operators::Power => Err(Message::new_complex(
             ExpressionCategory::Evaluation,
             format!("Unsupported operator for strings: {operator:?}"),
             source.clone(),
@@ -446,9 +447,9 @@ fn evaluate_function_call_operation(
     functions: &FunctionDefinitions,
     source: &ShareableString,
     span: Span,
-) -> Result<ComputedItem, ExpressionError> {
+) -> Result<ComputedItem, Message> {
     let definition = functions.get(function_name).ok_or_else(|| {
-        ExpressionError::new_complex(
+        Message::new_complex(
             ExpressionCategory::Evaluation,
             format!("Function '{function_name}' is not defined."),
             source.clone(),
@@ -469,7 +470,7 @@ fn evaluate_function_call_operation(
     match definition.parameter_constraints() {
         ArgumentCount::Exact { count } => {
             if evaluated_arguments.len() != *count {
-                return Err(ExpressionError::new_complex(
+                return Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!(
                         "Function '{}' requires exactly {} arguments, got {}.",
@@ -484,7 +485,7 @@ fn evaluate_function_call_operation(
         }
         ArgumentCount::Min { min } => {
             if evaluated_arguments.len() < *min {
-                return Err(ExpressionError::new_complex(
+                return Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!(
                         "Function '{}' requires at least {} arguments, got {}.",
@@ -499,7 +500,7 @@ fn evaluate_function_call_operation(
         }
         ArgumentCount::Max { max } => {
             if evaluated_arguments.len() > *max {
-                return Err(ExpressionError::new_complex(
+                return Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!(
                         "Function '{}' allows at most {} arguments, got {}.",
@@ -514,7 +515,7 @@ fn evaluate_function_call_operation(
         }
         ArgumentCount::Range { min, max } => {
             if evaluated_arguments.len() < *min || evaluated_arguments.len() > *max {
-                return Err(ExpressionError::new_complex(
+                return Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!(
                         "Function '{}' requires between {} and {} arguments, got {}.",
@@ -543,9 +544,9 @@ fn evaluate_index_operation(
     functions: &FunctionDefinitions,
     source: &ShareableString,
     span: Span,
-) -> Result<ComputedItem, ExpressionError> {
+) -> Result<ComputedItem, Message> {
     if index.len() != 2 && index.len() != 4 {
-        return Err(ExpressionError::new_complex(
+        return Err(Message::new_complex(
             ExpressionCategory::Evaluation,
             format!(
                 "Indexing requires exactly 2 or 4 indices, got {}",
@@ -574,7 +575,7 @@ fn evaluate_index_operation(
     }
 
     let index_1 = indexes.first().ok_or_else(|| {
-        ExpressionError::new_complex(
+        Message::new_complex(
             ExpressionCategory::Evaluation,
             "Missing first index.".to_string(),
             source.clone(),
@@ -582,7 +583,7 @@ fn evaluate_index_operation(
         )
     })?;
     let index_2 = indexes.get(1).ok_or_else(|| {
-        ExpressionError::new_complex(
+        Message::new_complex(
             ExpressionCategory::Evaluation,
             "Missing second index.".to_string(),
             source.clone(),
@@ -617,7 +618,7 @@ fn evaluate_index_operation(
             | ComputedItem::Identifier(_)
             | ComputedItem::Path(_)
             | ComputedItem::Unit(_) => {
-                return Err(ExpressionError::new_complex(
+                return Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     "Expected a table for table indexing.".to_string(),
                     source.clone(),
@@ -627,7 +628,7 @@ fn evaluate_index_operation(
         };
 
         let index_1 = indexes.first().ok_or_else(|| {
-            ExpressionError::new_complex(
+            Message::new_complex(
                 ExpressionCategory::Evaluation,
                 "Missing first index.".to_string(),
                 source.clone(),
@@ -635,7 +636,7 @@ fn evaluate_index_operation(
             )
         })?;
         let index_2 = indexes.get(1).ok_or_else(|| {
-            ExpressionError::new_complex(
+            Message::new_complex(
                 ExpressionCategory::Evaluation,
                 "Missing second index.".to_string(),
                 source.clone(),
@@ -650,7 +651,7 @@ fn evaluate_index_operation(
                     .filter(|size| *size < table.row_count());
 
                 size.ok_or_else(|| {
-                    ExpressionError::new_complex(
+                    Message::new_complex(
                         ExpressionCategory::Evaluation,
                         format!(
                             "Row index {} is out of bounds for a table with {} rows.",
@@ -671,7 +672,7 @@ fn evaluate_index_operation(
             | ComputedItem::Table(_)
             | ComputedItem::TableWithUnits(_)
             | ComputedItem::Unit(_) => {
-                return Err(ExpressionError::new_complex(
+                return Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!("Expected an integer index for the table, got {index_1:?}"),
                     source.clone(),
@@ -683,7 +684,7 @@ fn evaluate_index_operation(
         return match index_2 {
             ComputedItem::Identifier(s) | ComputedItem::String(s) => {
                 let value = table.get_cell_by_name(row_index, s).ok_or_else(|| {
-                    ExpressionError::new_complex(
+                    Message::new_complex(
                         ExpressionCategory::Evaluation,
                         format!("Field '{s}' not found in the table row."),
                         source.clone(),
@@ -701,7 +702,7 @@ fn evaluate_index_operation(
                     .filter(|size| *size < table.column_count());
 
                 let size = size.ok_or_else(|| {
-                    ExpressionError::new_complex(
+                    Message::new_complex(
                         ExpressionCategory::Evaluation,
                         format!(
                             "Column index {} is out of bounds for a table with {} columns.",
@@ -714,7 +715,7 @@ fn evaluate_index_operation(
                 })?;
 
                 let value = table.get_cell(row_index, size).ok_or_else(|| {
-                    ExpressionError::new_complex(
+                    Message::new_complex(
                         ExpressionCategory::Evaluation,
                         format!("Field '{i}' not found in the table row."),
                         source.clone(),
@@ -732,7 +733,7 @@ fn evaluate_index_operation(
             | ComputedItem::Path(_)
             | ComputedItem::Table(_)
             | ComputedItem::TableWithUnits(_)
-            | ComputedItem::Unit(_)) => Err(ExpressionError::new_complex(
+            | ComputedItem::Unit(_)) => Err(Message::new_complex(
                 ExpressionCategory::Evaluation,
                 format!("Expected a string or integer index for the table field, got {other:?}"),
                 source.clone(),
@@ -751,7 +752,7 @@ fn evaluate_expression(
     functions: &FunctionDefinitions,
     source: &ShareableString,
     expression: Expression,
-) -> Result<ComputedItem, ExpressionError> {
+) -> Result<ComputedItem, Message> {
     match expression {
         Expression::Literal(span, literal) => match literal {
             Literal::Integer(value) => Ok(ComputedItem::Integer(value)),
@@ -803,7 +804,7 @@ fn evaluate_expression(
                     | Operators::GreaterThanOrEqual
                     | Operators::And
                     | Operators::Or
-                    | Operators::Not => Err(ExpressionError::new_complex(
+                    | Operators::Not => Err(Message::new_complex(
                         ExpressionCategory::Evaluation,
                         format!("Unsupported operator for files: {operator:?}"),
                         source.clone(),
@@ -863,7 +864,7 @@ fn evaluate_expression(
                     | Operators::GreaterThanOrEqual
                     | Operators::And
                     | Operators::Or
-                    | Operators::Not => Err(ExpressionError::new_complex(
+                    | Operators::Not => Err(Message::new_complex(
                         ExpressionCategory::Evaluation,
                         format!("Unsupported operator for units: {operator:?}"),
                         source.clone(),
@@ -873,7 +874,7 @@ fn evaluate_expression(
                 (
                     ComputedItem::Table(_) | ComputedItem::TableWithUnits(_),
                     ComputedItem::Table(_) | ComputedItem::TableWithUnits(_),
-                ) => Err(ExpressionError::new_complex(
+                ) => Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!("Unsupported operator for tables: {operator:?}"),
                     source.clone(),
@@ -960,7 +961,7 @@ fn evaluate_expression(
                     | ComputedItem::String(_)
                     | ComputedItem::Table(_)
                     | ComputedItem::TableWithUnits(_),
-                ) => Err(ExpressionError::new_complex(
+                ) => Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!("Unsupported operator for mixed types: {operator:?}"),
                     source.clone(),
@@ -994,12 +995,12 @@ fn evaluate_bare_identifier_choice(
     name: &str,
     source: &ShareableString,
     span: Span,
-) -> Result<ComputedItem, ExpressionError> {
+) -> Result<ComputedItem, Message> {
     let value = ShareableString::from(name);
     if choice_definition.contains(value.clone()) {
         Ok(ComputedItem::Identifier(value))
     } else {
-        Err(ExpressionError::new_complex(
+        Err(Message::new_complex(
             ExpressionCategory::Evaluation,
             format!("Value '{value}' is not a valid choice."),
             source.clone(),
@@ -1015,12 +1016,12 @@ fn validate_unit_value(
     computed: &ComputedItem,
     source: &ShareableString,
     span: Span,
-) -> Result<ComputedItem, ExpressionError> {
+) -> Result<ComputedItem, Message> {
     let unit = match computed {
         ComputedItem::Unit(unit) => *unit,
         ComputedItem::String(value) | ComputedItem::Identifier(value) => {
             UnitId::from_unit_id_str(value.as_str()).ok_or_else(|| {
-                ExpressionError::new_complex(
+                Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!("Value '{value}' is not a valid unit ID."),
                     source.clone(),
@@ -1035,7 +1036,7 @@ fn validate_unit_value(
         | ComputedItem::Path(_)
         | ComputedItem::Table(_)
         | ComputedItem::TableWithUnits(_) => {
-            return Err(ExpressionError::new_complex(
+            return Err(Message::new_complex(
                 ExpressionCategory::Evaluation,
                 format!("Expected a unit value, but got {computed:?}."),
                 source.clone(),
@@ -1047,7 +1048,7 @@ fn validate_unit_value(
     if unit_definition.unit_family().unit_ids().contains(&unit) {
         Ok(ComputedItem::Unit(unit))
     } else {
-        Err(ExpressionError::new_complex(
+        Err(Message::new_complex(
             ExpressionCategory::Evaluation,
             format!(
                 "Value '{}' is not a valid unit ID for {}.",
@@ -1066,7 +1067,7 @@ fn evaluate_basic_expression(
     computed_data: &BTreeMap<ShareableString, ComputedItem>,
     functions: &FunctionDefinitions,
     basic: &BasicInputData,
-) -> Result<ComputedItem, ExpressionError> {
+) -> Result<ComputedItem, Message> {
     let source = basic.data();
     let expression = string_to_expression(source)?;
 
@@ -1094,7 +1095,7 @@ fn evaluate_basic_expression(
             if let ComputedItem::Boolean(_value) = &computed {
                 Ok(computed)
             } else {
-                Err(ExpressionError::new_complex(
+                Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!(
                         "Expected a boolean value for boolean definition, but got {computed:?}."
@@ -1110,7 +1111,7 @@ fn evaluate_basic_expression(
                 if choice_definition.contains(value) {
                     Ok(ComputedItem::Identifier(value.clone()))
                 } else {
-                    Err(ExpressionError::new_complex(
+                    Err(Message::new_complex(
                         ExpressionCategory::Evaluation,
                         format!("Value '{value}' is not a valid choice."),
                         source.clone(),
@@ -1118,7 +1119,7 @@ fn evaluate_basic_expression(
                     ))
                 }
             } else {
-                Err(ExpressionError::new_complex(
+                Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!("Expected a string value for choice, but got {computed:?}."),
                     source.clone(),
@@ -1134,7 +1135,7 @@ fn evaluate_basic_expression(
             } else if let ComputedItem::String(value) = &computed {
                 Ok(ComputedItem::Path(value.clone()))
             } else {
-                Err(ExpressionError::new_complex(
+                Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!("Expected a file path for file definition, but got {computed:?}."),
                     source.clone(),
@@ -1150,7 +1151,7 @@ fn evaluate_basic_expression(
             } else if let ComputedItem::String(value) = &computed {
                 Ok(ComputedItem::Path(value.clone()))
             } else {
-                Err(ExpressionError::new_complex(
+                Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!("Expected a folder path for folder definition, but got {computed:?}."),
                     source.clone(),
@@ -1165,7 +1166,7 @@ fn evaluate_basic_expression(
                 match constraint {
                     IntegerConstraintEnum::Min { min, inclusive } => {
                         if *value < min || (!inclusive && *value == min) {
-                            return Err(ExpressionError::new_complex(
+                            return Err(Message::new_complex(
                                 ExpressionCategory::Evaluation,
                                 format!(
                                     "Value {value} is less than the minimum allowed value of {min}."
@@ -1178,7 +1179,7 @@ fn evaluate_basic_expression(
                     }
                     IntegerConstraintEnum::Max { max, inclusive } => {
                         if *value > max || (!inclusive && *value == max) {
-                            return Err(ExpressionError::new_complex(
+                            return Err(Message::new_complex(
                                 ExpressionCategory::Evaluation,
                                 format!(
                                     "Value {value} is greater than the maximum allowed value of {max}."
@@ -1196,7 +1197,7 @@ fn evaluate_basic_expression(
                         max_inclusive,
                     } => {
                         if *value < min || (!min_inclusive && *value == min) {
-                            return Err(ExpressionError::new_complex(
+                            return Err(Message::new_complex(
                                 ExpressionCategory::Evaluation,
                                 format!(
                                     "Value {value} is less than the minimum allowed value of {min}."
@@ -1206,7 +1207,7 @@ fn evaluate_basic_expression(
                             ));
                         }
                         if *value > max || (!max_inclusive && *value == max) {
-                            return Err(ExpressionError::new_complex(
+                            return Err(Message::new_complex(
                                 ExpressionCategory::Evaluation,
                                 format!(
                                     "Value {value} is greater than the maximum allowed value of {max}."
@@ -1220,7 +1221,7 @@ fn evaluate_basic_expression(
                     IntegerConstraintEnum::None => Ok(computed),
                 }
             } else {
-                Err(ExpressionError::new_complex(
+                Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!(
                         "Expected an integer value for integer definition, but got {computed:?}."
@@ -1238,7 +1239,7 @@ fn evaluate_basic_expression(
                     match constraint {
                         NumberConstraintEnum::Min { min, inclusive } => {
                             if (*value) < min || (!inclusive && (*value) <= min) {
-                                return Err(ExpressionError::new_complex(
+                                return Err(Message::new_complex(
                                     ExpressionCategory::Evaluation,
                                     format!(
                                         "Value {value} is less than the minimum allowed value of {min}."
@@ -1251,7 +1252,7 @@ fn evaluate_basic_expression(
                         }
                         NumberConstraintEnum::Max { max, inclusive } => {
                             if (*value) > max || (!inclusive && (*value) >= max) {
-                                return Err(ExpressionError::new_complex(
+                                return Err(Message::new_complex(
                                     ExpressionCategory::Evaluation,
                                     format!(
                                         "Value {value} is greater than the maximum allowed value of {max}."
@@ -1269,7 +1270,7 @@ fn evaluate_basic_expression(
                             max_inclusive,
                         } => {
                             if (*value) < min || (!min_inclusive && (*value) <= min) {
-                                return Err(ExpressionError::new_complex(
+                                return Err(Message::new_complex(
                                     ExpressionCategory::Evaluation,
                                     format!(
                                         "Value {value} is less than the minimum allowed value of {min}."
@@ -1279,7 +1280,7 @@ fn evaluate_basic_expression(
                                 ));
                             }
                             if (*value) > max || (!max_inclusive && (*value) >= max) {
-                                return Err(ExpressionError::new_complex(
+                                return Err(Message::new_complex(
                                     ExpressionCategory::Evaluation,
                                     format!(
                                         "Value {value} is greater than the maximum allowed value of {max}."
@@ -1301,7 +1302,7 @@ fn evaluate_basic_expression(
                 | ComputedItem::Path(_)
                 | ComputedItem::Table(_)
                 | ComputedItem::TableWithUnits(_)
-                | ComputedItem::Unit(_) => Err(ExpressionError::new_complex(
+                | ComputedItem::Unit(_) => Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!(
                         "Expected a numeric value for number definition, but got {computed:?}."
@@ -1316,7 +1317,7 @@ fn evaluate_basic_expression(
             match &computed {
                 ComputedItem::Float(value) => {
                     if number_definition.preferred_units() != UnitId::None {
-                        return Err(ExpressionError::new_complex(
+                        return Err(Message::new_complex(
                             ExpressionCategory::Evaluation,
                             format!(
                                 "Expected a numeric value with units for number definition, but got {computed:?}."
@@ -1330,7 +1331,7 @@ fn evaluate_basic_expression(
                     match constraint {
                         NumberConstraintEnum::Min { min, inclusive } => {
                             if (*value) < min || (!inclusive && (*value) <= min) {
-                                return Err(ExpressionError::new_complex(
+                                return Err(Message::new_complex(
                                     ExpressionCategory::Evaluation,
                                     format!(
                                         "Value {value} is less than the minimum allowed value of {min}."
@@ -1343,7 +1344,7 @@ fn evaluate_basic_expression(
                         }
                         NumberConstraintEnum::Max { max, inclusive } => {
                             if (*value) > max || (!inclusive && (*value) >= max) {
-                                return Err(ExpressionError::new_complex(
+                                return Err(Message::new_complex(
                                     ExpressionCategory::Evaluation,
                                     format!(
                                         "Value {value} is greater than the maximum allowed value of {max}."
@@ -1361,7 +1362,7 @@ fn evaluate_basic_expression(
                             max_inclusive,
                         } => {
                             if (*value) < min || (!min_inclusive && (*value) <= min) {
-                                return Err(ExpressionError::new_complex(
+                                return Err(Message::new_complex(
                                     ExpressionCategory::Evaluation,
                                     format!(
                                         "Value {value} is less than the minimum allowed value of {min}."
@@ -1371,7 +1372,7 @@ fn evaluate_basic_expression(
                                 ));
                             }
                             if (*value) > max || (!max_inclusive && (*value) >= max) {
-                                return Err(ExpressionError::new_complex(
+                                return Err(Message::new_complex(
                                     ExpressionCategory::Evaluation,
                                     format!(
                                         "Value {value} is greater than the maximum allowed value of {max}."
@@ -1388,7 +1389,7 @@ fn evaluate_basic_expression(
                 }
                 ComputedItem::FloatWithUnit { value, unit } => {
                     if number_definition.preferred_units().family_id() != unit.family_id() {
-                        return Err(ExpressionError::new_complex(
+                        return Err(Message::new_complex(
                             ExpressionCategory::Evaluation,
                             format!(
                                 "Expected a numeric value with units for number definition, but got {computed:?}."
@@ -1401,7 +1402,7 @@ fn evaluate_basic_expression(
                     let converted_value =
                         convert(*value, *unit, number_definition.preferred_units()).map_err(
                             |error| {
-                                ExpressionError::new_complex(
+                                Message::new_complex(
                                     ExpressionCategory::Evaluation,
                                     error,
                                     source.clone(),
@@ -1419,7 +1420,7 @@ fn evaluate_basic_expression(
                     match constraint {
                         NumberConstraintEnum::Min { min, inclusive } => {
                             if (converted_value) < min || (!inclusive && (converted_value) <= min) {
-                                return Err(ExpressionError::new_complex(
+                                return Err(Message::new_complex(
                                     ExpressionCategory::Evaluation,
                                     format!(
                                         "Value {converted_value} is less than the minimum allowed value of {min}."
@@ -1432,7 +1433,7 @@ fn evaluate_basic_expression(
                         }
                         NumberConstraintEnum::Max { max, inclusive } => {
                             if (converted_value) > max || (!inclusive && (converted_value) >= max) {
-                                return Err(ExpressionError::new_complex(
+                                return Err(Message::new_complex(
                                     ExpressionCategory::Evaluation,
                                     format!(
                                         "Value {converted_value} is greater than the maximum allowed value of {max}."
@@ -1452,7 +1453,7 @@ fn evaluate_basic_expression(
                             if (converted_value) < min
                                 || (!min_inclusive && (converted_value) <= min)
                             {
-                                return Err(ExpressionError::new_complex(
+                                return Err(Message::new_complex(
                                     ExpressionCategory::Evaluation,
                                     format!(
                                         "Value {converted_value} is less than the minimum allowed value of {min}."
@@ -1464,7 +1465,7 @@ fn evaluate_basic_expression(
                             if (converted_value) > max
                                 || (!max_inclusive && (converted_value) >= max)
                             {
-                                return Err(ExpressionError::new_complex(
+                                return Err(Message::new_complex(
                                     ExpressionCategory::Evaluation,
                                     format!(
                                         "Value {converted_value} is greater than the maximum allowed value of {max}."
@@ -1486,7 +1487,7 @@ fn evaluate_basic_expression(
                 | ComputedItem::Path(_)
                 | ComputedItem::Table(_)
                 | ComputedItem::TableWithUnits(_)
-                | ComputedItem::Unit(_) => Err(ExpressionError::new_complex(
+                | ComputedItem::Unit(_) => Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!(
                         "Expected a numeric value for number definition, but got {computed:?}."
@@ -1507,7 +1508,7 @@ fn evaluate_basic_expression(
             } else if let ComputedItem::Integer(value) = &computed {
                 Ok(ComputedItem::String(value.to_string().into()))
             } else {
-                Err(ExpressionError::new_complex(
+                Err(Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!("Expected a string value for string definition, but got {computed:?}."),
                     source.clone(),
@@ -1525,7 +1526,7 @@ fn evaluate_number_with_units_expression(
     computed_data: &BTreeMap<ShareableString, ComputedItem>,
     functions: &FunctionDefinitions,
     basic: &BasicInputWithUnitsData,
-) -> Result<ComputedItem, ExpressionError> {
+) -> Result<ComputedItem, Message> {
     let source = basic.data();
     let expression = string_to_expression(source)?;
     let span = expression_span(&expression);
@@ -1535,7 +1536,7 @@ fn evaluate_number_with_units_expression(
     let computed = evaluate_expression(computed_data, functions, source, expression)?;
 
     let NumberWithUnits(number_definition) = basic.definition() else {
-        return Err(ExpressionError::new_complex(
+        return Err(Message::new_complex(
             ExpressionCategory::Evaluation,
             "Expected a number-with-units definition.".to_string(),
             source.clone(),
@@ -1547,7 +1548,7 @@ fn evaluate_number_with_units_expression(
         ComputedItem::Float(value) => {
             let unit = if is_float_literal {
                 UnitId::from_unit_id_str(basic.units().as_str()).ok_or_else(|| {
-                    ExpressionError::new_complex(
+                    Message::new_complex(
                         ExpressionCategory::Evaluation,
                         format!("Unknown unit '{}'.", basic.units()),
                         source.clone(),
@@ -1568,7 +1569,7 @@ fn evaluate_number_with_units_expression(
         | ComputedItem::Table(_)
         | ComputedItem::TableWithUnits(_)
         | ComputedItem::Unit(_) => {
-            return Err(ExpressionError::new_complex(
+            return Err(Message::new_complex(
                 ExpressionCategory::Evaluation,
                 format!("Expected a numeric value for number definition, but got {computed:?}."),
                 source.clone(),
@@ -1583,7 +1584,7 @@ fn evaluate_number_with_units_expression(
 
     let value =
         convert(value, source_unit, number_definition.preferred_units()).map_err(|error| {
-            ExpressionError::new_complex(
+            Message::new_complex(
                 ExpressionCategory::Evaluation,
                 error,
                 source.clone(),
@@ -1600,7 +1601,7 @@ fn evaluate_table_expression(
     computed_data: &BTreeMap<ShareableString, ComputedItem>,
     functions: &FunctionDefinitions,
     table: &TableInputData,
-) -> Result<Vec<Vec<f64>>, Vec<ExpressionError>> {
+) -> Result<Vec<Vec<f64>>, Vec<Message>> {
     let parameter = table.parameter();
     if !parameter.as_str().is_empty() {
         let parameter_source = ShareableString::from(parameter.as_str().to_string());
@@ -1631,7 +1632,7 @@ fn evaluate_table_expression(
                 let referenced_table = &referenced_table;
                 let table_definition = table.definition();
                 if table_definition.count() != referenced_table.keys().len() {
-                    return Err(vec![ExpressionError::new_complex(
+                    return Err(vec![Message::new_complex(
                         ExpressionCategory::Evaluation,
                         format!(
                             "Parameter '{}' references a table with {} columns, but the current table expects {} columns.",
@@ -1651,7 +1652,7 @@ fn evaluate_table_expression(
                     let mut converted_row = Vec::with_capacity(row.len());
                     for (j, data) in row.iter().enumerate() {
                         let Some(column_definition) = table_definition.get_by_index(j) else {
-                            errors.push(ExpressionError::new_complex(
+                            errors.push(Message::new_complex(
                                 ExpressionCategory::Evaluation,
                                 format!(
                                     "Parameter '{parameter}' references a table with no column definition at index {j}."
@@ -1665,7 +1666,7 @@ fn evaluate_table_expression(
                         match column_definition.constraint() {
                             NumberConstraintEnum::Min { min, inclusive } => {
                                 if data < min || (!inclusive && data <= min) {
-                                    errors.push(ExpressionError::new_complex(
+                                    errors.push(Message::new_complex(
                                         ExpressionCategory::Evaluation,
                                         format!(
                                             "Value {} in column '{}' is less than the minimum allowed value of {}.",
@@ -1678,7 +1679,7 @@ fn evaluate_table_expression(
                             }
                             NumberConstraintEnum::Max { max, inclusive } => {
                                 if data > max || (!inclusive && data >= max) {
-                                    errors.push(ExpressionError::new_complex(
+                                    errors.push(Message::new_complex(
                                         ExpressionCategory::Evaluation,
                                         format!(
                                             "Value {} in column '{}' is greater than the maximum allowed value of {}.",
@@ -1696,7 +1697,7 @@ fn evaluate_table_expression(
                                 max_inclusive,
                             } => {
                                 if data < min || (!min_inclusive && data <= min) {
-                                    errors.push(ExpressionError::new_complex(
+                                    errors.push(Message::new_complex(
                                         ExpressionCategory::Evaluation,
                                         format!(
                                             "Value {} in column '{}' is less than the minimum allowed value of {}.",
@@ -1707,7 +1708,7 @@ fn evaluate_table_expression(
                                     ));
                                 }
                                 if data > max || (!max_inclusive && data >= max) {
-                                    errors.push(ExpressionError::new_complex(
+                                    errors.push(Message::new_complex(
                                         ExpressionCategory::Evaluation,
                                         format!(
                                             "Value {} in column '{}' is greater than the maximum allowed value of {}.",
@@ -1739,7 +1740,7 @@ fn evaluate_table_expression(
             | ComputedItem::Identifier(_)
             | ComputedItem::Path(_)
             | ComputedItem::TableWithUnits(_)
-            | ComputedItem::Unit(_)) => Err(vec![ExpressionError::new_complex(
+            | ComputedItem::Unit(_)) => Err(vec![Message::new_complex(
                 ExpressionCategory::Evaluation,
                 format!(
                     "Parameter '{parameter}' is expected to reference a table, but got {other:?}."
@@ -1760,7 +1761,7 @@ fn evaluate_table_expression(
             let Some(number_definition) = definition.get_by_index(i) else {
                 let cell_source = ShareableString::from(basic_data.as_str().to_string());
                 let cell_span = Span::new(0, basic_data.as_str().chars().count());
-                return Err(vec![ExpressionError::new_complex(
+                return Err(vec![Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!("No column definition exists for table cell at index {i}."),
                     cell_source,
@@ -1778,7 +1779,7 @@ fn evaluate_table_expression(
                 Ok(other) => {
                     let cell_source = ShareableString::from(basic_data.as_str().to_string());
                     let cell_span = Span::new(0, basic_data.as_str().chars().count());
-                    return Err(vec![ExpressionError::new_complex(
+                    return Err(vec![Message::new_complex(
                         ExpressionCategory::Evaluation,
                         format!("Expected a numeric value for table cell, but got {other:?}."),
                         cell_source,
@@ -1801,7 +1802,7 @@ fn evaluate_table_with_units_expression(
     computed_data: &BTreeMap<ShareableString, ComputedItem>,
     functions: &FunctionDefinitions,
     table: &TableWithUnitsInputData,
-) -> Result<Vec<Vec<f64>>, Vec<ExpressionError>> {
+) -> Result<Vec<Vec<f64>>, Vec<Message>> {
     let parameter = table.parameter();
     if !parameter.as_str().is_empty() {
         let parameter_source = ShareableString::from(parameter.as_str().to_string());
@@ -1828,7 +1829,7 @@ fn evaluate_table_with_units_expression(
             | ComputedItem::Identifier(_)
             | ComputedItem::Path(_)
             | ComputedItem::Unit(_)) => {
-                return Err(vec![ExpressionError::new_complex(
+                return Err(vec![Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!(
                         "Parameter '{parameter}' is expected to reference a table, but got {other:?}."
@@ -1841,7 +1842,7 @@ fn evaluate_table_with_units_expression(
 
         let table_definition = table.definition();
         if table_definition.count() != referenced_table.keys().len() {
-            return Err(vec![ExpressionError::new_complex(
+            return Err(vec![Message::new_complex(
                 ExpressionCategory::Evaluation,
                 format!(
                     "Parameter '{}' references a table with {} columns, but the current table expects {} columns.",
@@ -1855,7 +1856,7 @@ fn evaluate_table_with_units_expression(
         }
         if let Some(units) = &source_units {
             if units.len() != referenced_table.column_count() {
-                return Err(vec![ExpressionError::new_complex(
+                return Err(vec![Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!(
                         "Parameter '{}' references a table with {} units for {} columns.",
@@ -1875,7 +1876,7 @@ fn evaluate_table_with_units_expression(
             let mut converted_row = Vec::with_capacity(row.len());
             for (j, data) in row.iter().enumerate() {
                 let Some(column_definition) = table_definition.get_by_index(j) else {
-                    errors.push(ExpressionError::new_complex(
+                    errors.push(Message::new_complex(
                                 ExpressionCategory::Evaluation,
                                 format!(
                                     "Parameter '{parameter}' references a table with no column definition at index {j}."
@@ -1893,7 +1894,7 @@ fn evaluate_table_with_units_expression(
                 let data = match convert(*data, source_unit, column_definition.preferred_units()) {
                     Ok(value) => value,
                     Err(error) => {
-                        errors.push(ExpressionError::new_complex(
+                        errors.push(Message::new_complex(
                                         ExpressionCategory::Evaluation,
                                         format!(
                                             "Cannot convert parameter '{parameter}' column '{}' from {} to {}: {error}",
@@ -1910,7 +1911,7 @@ fn evaluate_table_with_units_expression(
                 match column_definition.constraint() {
                     NumberConstraintEnum::Min { min, inclusive } => {
                         if data < min || (!inclusive && data <= min) {
-                            errors.push(ExpressionError::new_complex(
+                            errors.push(Message::new_complex(
                                         ExpressionCategory::Evaluation,
                                         format!(
                                             "Value {} in column '{}' is less than the minimum allowed value of {}.",
@@ -1923,7 +1924,7 @@ fn evaluate_table_with_units_expression(
                     }
                     NumberConstraintEnum::Max { max, inclusive } => {
                         if data > max || (!inclusive && data >= max) {
-                            errors.push(ExpressionError::new_complex(
+                            errors.push(Message::new_complex(
                                         ExpressionCategory::Evaluation,
                                         format!(
                                             "Value {} in column '{}' is greater than the maximum allowed value of {}.",
@@ -1941,7 +1942,7 @@ fn evaluate_table_with_units_expression(
                         max_inclusive,
                     } => {
                         if data < min || (!min_inclusive && data <= min) {
-                            errors.push(ExpressionError::new_complex(
+                            errors.push(Message::new_complex(
                                         ExpressionCategory::Evaluation,
                                         format!(
                                             "Value {} in column '{}' is less than the minimum allowed value of {}.",
@@ -1952,7 +1953,7 @@ fn evaluate_table_with_units_expression(
                                     ));
                         }
                         if data > max || (!max_inclusive && data >= max) {
-                            errors.push(ExpressionError::new_complex(
+                            errors.push(Message::new_complex(
                                         ExpressionCategory::Evaluation,
                                         format!(
                                             "Value {} in column '{}' is greater than the maximum allowed value of {}.",
@@ -1989,7 +1990,7 @@ fn evaluate_table_with_units_expression(
             let Some(number_definition) = definition.get_by_index(i) else {
                 let cell_source = ShareableString::from(basic_data.as_str().to_string());
                 let cell_span = Span::new(0, basic_data.as_str().chars().count());
-                return Err(vec![ExpressionError::new_complex(
+                return Err(vec![Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!("No column definition exists for table cell at index {i}."),
                     cell_source,
@@ -1999,7 +2000,7 @@ fn evaluate_table_with_units_expression(
             let Some(unit) = units.get(i) else {
                 let cell_source = ShareableString::from(basic_data.as_str().to_string());
                 let cell_span = Span::new(0, basic_data.as_str().chars().count());
-                return Err(vec![ExpressionError::new_complex(
+                return Err(vec![Message::new_complex(
                     ExpressionCategory::Evaluation,
                     format!("No unit exists for table cell at index {i}."),
                     cell_source,
@@ -2021,7 +2022,7 @@ fn evaluate_table_with_units_expression(
                 Ok(other) => {
                     let cell_source = ShareableString::from(basic_data.as_str().to_string());
                     let cell_span = Span::new(0, basic_data.as_str().chars().count());
-                    return Err(vec![ExpressionError::new_complex(
+                    return Err(vec![Message::new_complex(
                         ExpressionCategory::Evaluation,
                         format!("Expected a numeric value for table cell, but got {other:?}."),
                         cell_source,
@@ -2047,7 +2048,7 @@ pub(crate) fn evaluator(
     input_data: &BTreeMap<ShareableString, ObjectItemInputData>,
 ) -> (
     BTreeMap<ShareableString, ComputedItem>,
-    Vec<ExpressionError>,
+    Vec<Message>,
 ) {
     let mut result = BTreeMap::new();
     let mut errors = Vec::new();
@@ -2820,14 +2821,14 @@ mod tests {
     }
 
     /// A helper that sums numeric arguments (Integer or Float) into a Float.
-    fn sum_function(args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
+    fn sum_function(args: &[ComputedItem]) -> Result<ComputedItem, Message> {
         let mut total = 0.0;
         for arg in args {
             match arg {
                 ComputedItem::Float(v) => total.add_assign(v),
                 ComputedItem::Integer(v) => total.add_assign(*v as f64),
                 other => {
-                    return Err(ExpressionError::new(
+                    return Err(Message::new(
                         ExpressionCategory::Evaluation,
                         format!("sum() expects numeric arguments, got {other:?}"),
                     ));
@@ -2838,7 +2839,7 @@ mod tests {
     }
 
     /// A function with no arguments that always returns the float value of `42.0`.
-    fn constant_function(_args: &[ComputedItem]) -> Result<ComputedItem, ExpressionError> {
+    fn constant_function(_args: &[ComputedItem]) -> Result<ComputedItem, Message> {
         Ok(ComputedItem::Float(42.0))
     }
 
