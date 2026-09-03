@@ -1,0 +1,21 @@
+[package]
+name = "built_in_registry"
+version.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+component_common.workspace = true
+datastore.workspace = true
+keys.workspace = true
+phf.workspace = true
+
+[build-dependencies]
+camino.workspace = true
+glob.workspace = true
+phf_codegen.workspace = true
+
+[lints]
+workspace = true
