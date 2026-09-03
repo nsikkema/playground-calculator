@@ -4,7 +4,7 @@ use camino::{Utf8Path, Utf8PathBuf};
 use glob::glob;
 use std::collections::BTreeMap;
 use std::env;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{self, BufWriter, Write};
 
 /// Metadata needed to generate one registry entry.
@@ -13,8 +13,8 @@ struct Component {
     id: String,
     /// Component definition version.
     version: u16,
-    /// Rust expression referencing the static definition.
-    definition_path: String,
+    /// Rust expression referencing the static registration.
+    registration_path: String,
 }
 
 /// Creates an invalid-data error for malformed component definitions.
@@ -42,26 +42,18 @@ fn component_from_path(manifest_dir: &Utf8Path, path: &Utf8Path) -> io::Result<C
         )));
     }
 
-    let source = fs::read_to_string(path)?;
-    let static_name = source
-        .lines()
-        .find_map(|line| {
-            line.trim_start()
-                .strip_prefix("pub static ")
-                .and_then(|declaration| declaration.split_once(':'))
-                .map(|(name, _type_name)| name.trim())
-        })
-        .ok_or_else(|| invalid_data(format!("no public static definition found in {path}")))?;
     let relative_path = path
         .strip_prefix(manifest_dir.join("src"))
         .map_err(|error| invalid_data(format!("invalid component path {path}: {error}")))?
-        .with_extension("");
-    let module_path = relative_path.as_str().replace('/', "::");
+        .parent()
+        .ok_or_else(|| invalid_data(format!("definition has no component module: {path}")))?
+        .as_str()
+        .replace('/', "::");
 
     Ok(Component {
         id: id.to_owned(),
         version,
-        definition_path: format!("&crate::{module_path}::{static_name}"),
+        registration_path: format!("&crate::{relative_path}::REGISTRATION"),
     })
 }
 
@@ -85,11 +77,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for component in &components {
         component_map.entry(
             (component.id.as_str(), component.version),
-            component.definition_path.clone(),
+            component.registration_path.clone(),
         );
         latest.insert(
             component.id.clone(),
-            (component.version, component.definition_path.clone()),
+            (component.version, component.registration_path.clone()),
         );
         versions
             .entry(component.id.clone())
@@ -98,8 +90,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut latest_map = phf_codegen::Map::<&str>::new();
-    for (id, (_version, definition_path)) in &latest {
-        latest_map.entry(id, definition_path);
+    for (id, (_version, registration_path)) in &latest {
+        latest_map.entry(id, registration_path);
     }
 
     let mut versions_map = phf_codegen::Map::<&str>::new();
@@ -116,12 +108,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut output = BufWriter::new(File::create(output_path)?);
     writeln!(
         output,
-        "/// All built-in definitions, keyed by `(id, version)`.\n\
+        "/// All built-in registrations, keyed by `(id, version)`.\n\
          #[allow(clippy::unreadable_literal)]\n\
-         pub static COMPONENTS: phf::Map<(&'static str, u16), &'static crate::BuiltInComponentDefinition> =\n{};\n\
-         /// Latest built-in definition for each component id.\n\
+        pub static COMPONENTS: phf::Map<(&'static str, u16), &'static crate::BuiltInComponentRegistration> =\n{};\n\
+        /// Latest built-in registration for each component id.\n\
          #[allow(clippy::unreadable_literal)]\n\
-         pub static LATEST: phf::Map<&'static str, &'static crate::BuiltInComponentDefinition> =\n{};\n\
+        pub static LATEST: phf::Map<&'static str, &'static crate::BuiltInComponentRegistration> =\n{};\n\
          /// Available versions for each component id, in ascending order.\n\
          #[allow(clippy::unreadable_literal)]\n\
          pub static VERSIONS: phf::Map<&'static str, &'static [u16]> =\n{};",

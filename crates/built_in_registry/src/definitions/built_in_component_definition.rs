@@ -1,5 +1,6 @@
 use crate::definitions::{IconDefinition, PortDefinition};
 use datastore::compile_time::{ParameterObjectCompileTime, VariableObjectCompileTime};
+use expression_engine::prelude::FunctionDefinition;
 use keys::ConstComponentKey;
 
 /// Re-exports the [`component_key!`] macro for use in [`built_in_component_definition!`].
@@ -215,10 +216,16 @@ macro_rules! built_in_component_definition {
 }
 pub(crate) use built_in_component_definition;
 
-/// A trait for built-in components.
-pub trait BuiltInComponent {
+/// Runtime behavior supplied by a built-in component instance.
+pub trait BuiltInComponent: std::fmt::Debug + Send + Sync {
     /// Returns the definition of the built-in component.
     fn definition(&self) -> &'static BuiltInComponentDefinition;
+
+    /// Returns the functions available to this component's expressions.
+    #[must_use]
+    fn functions(&self) -> Vec<FunctionDefinition> {
+        Vec::new()
+    }
 }
 
 #[cfg(test)]
@@ -228,6 +235,7 @@ mod tests {
     use crate::definitions::port_definition::port_definition;
     use component_common::{PortKind, Rotation};
 
+    #[derive(Debug)]
     struct ComponentV1;
 
     static PORTS: &[PortDefinition] = &[

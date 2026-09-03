@@ -64,8 +64,10 @@ dependencies = [
  "camino",
  "component_common",
  "datastore",
+ "expression_engine",
  "glob",
  "keys",
+ "message",
  "phf",
  "phf_codegen",
 ]

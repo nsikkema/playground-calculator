@@ -9,7 +9,9 @@ publish.workspace = true
 [dependencies]
 component_common.workspace = true
 datastore.workspace = true
+expression_engine.workspace = true
 keys.workspace = true
+message.workspace = true
 phf.workspace = true
 
 [build-dependencies]
